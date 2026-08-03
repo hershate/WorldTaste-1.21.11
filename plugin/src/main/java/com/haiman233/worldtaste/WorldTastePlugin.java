@@ -1,5 +1,6 @@
 package com.haiman233.worldtaste;
 
+import com.haiman233.worldtaste.load.Setup;
 import io.github.thebusybiscuit.slimefun4.api.SlimefunAddon;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -16,8 +17,14 @@ public final class WorldTastePlugin extends JavaPlugin implements SlimefunAddon 
     @Override
     public void onEnable() {
         instance = this;
+        WT.plugin = this;
         getLogger().info("尘世百味 开始加载（独立版）...");
-        // TODO: 内容加载入口（groups/recipe_types/items/foods/machines/...）与行为注册
+        try {
+            Setup.loadAll();
+        } catch (Throwable e) {
+            getLogger().severe("尘世百味 加载过程中出现异常: " + e);
+            e.printStackTrace();
+        }
         getLogger().info("尘世百味 加载成功");
     }
 

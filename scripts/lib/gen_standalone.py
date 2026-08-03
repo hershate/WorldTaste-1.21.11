@@ -1,0 +1,171 @@
+# -*- coding: utf-8 -*-
+"""
+WorldTaste 独立插件数据生成器
+================================
+从原 RSC 脚本(scripts/)中抽取「行为参数」，生成插件运行期读取的数据文件：
+  - plugin/src/main/resources/data/consumables.yml  : 食物消耗脚本 -> WT_eatConsumable 参数
+  - plugin/src/main/resources/data/crops.yml        : 作物脚本   -> WT_setupCrop 参数
+  - plugin/src/main/resources/data/fishing.yml      : diaoyu.js  -> 鱼饵掉落表
+
+原因：独立插件无 GraalVM JS 引擎，不能在运行期 eval 脚本；故在构建期把“数据”抽出，
+“逻辑”由 Java 实现。仅抽取结构标准的脚本；无法解析的会打印并跳过（其行为由 Java 默认逻辑兜底）。
+
+用法（项目根目录）:
+    python scripts/lib/gen_standalone.py
+"""
+import os
+import re
+import pathlib
+
+ROOT = pathlib.Path(__file__).resolve().parents[2]          # WorldTaste 根
+SCRIPTS = ROOT / "scripts"
+OUT = ROOT / "plugin" / "src" / "main" / "resources" / "data"
+OUT.mkdir(parents=True, exist_ok=True)
+
+# ---------- consumables ----------
+def parse_consumable(text):
+    """匹配 WT_eatConsumable(event, { ... }) 或 WT_eatFood(event, a, b, c)。返回 dict 或 None。"""
+    m = re.search(r"WT_eatConsumable\s*\(\s*event\s*,\s*\{([^}]*)\}", text, re.S)
+    if m:
+        body = m.group(1)
+        opts = {}
+        for k, v in re.findall(r"(\w+)\s*:\s*(\"[^\"]*\"|true|false|-?[0-9]+(?:\.[0-9]+)?)", body):
+            opts[k] = _coerce(v)
+        return {"kind": "use", **opts}
+    m = re.search(r"WT_eatFood\s*\(\s*event\s*,\s*([0-9]+(?:\.[0-9]+)?)\s*,\s*([0-9]+(?:\.[0-9]+)?)\s*,\s*([0-9]+(?:\.[0-9]+)?)", text)
+    if m:
+        return {"kind": "eat", "food": _coerce(m.group(1)), "saturation": _coerce(m.group(2)), "exhaustion": _coerce(m.group(3))}
+    return None
+
+def _coerce(v):
+    if v.startswith('"'): return v.strip('"')
+    if v == "true": return True
+    if v == "false": return False
+    return float(v) if "." in v else int(v)
+
+def gen_consumables():
+    out = {}
+    for d in ["", "gandi", "hetun", "yurenjie"]:
+        base = SCRIPTS if d == "" else (SCRIPTS / d)
+        if not base.exists(): continue
+        for f in sorted(base.glob("*.js")):
+            if f.name in ("diaoyu.js",): continue
+            text = f.read_text(encoding="utf-8")
+            if "WT_eatConsumable" not in text and "WT_eatFood" not in text: continue
+            parsed = parse_consumable(text)
+            if parsed:
+                name = f.stem if d == "" else f"{d}/{f.stem}"
+                out[name] = parsed
+    _write_yaml(OUT / "consumables.yml", out)
+    print(f"consumables: {len(out)}")
+
+# ---------- crops ----------
+SMALL_STEPS = [round(1/10,6), round(1/6,6), round(1/3,6), 0.5, round(2/3,6), round(5/6,6), 1.0, round(7/6,6)]
+
+def parse_crop(text):
+    m = re.search(r"WT_setupCrop\s*\(\s*\{(.*?)\}\s*\)\s*;", text, re.S)
+    if not m: return None
+    body = m.group(1)
+    cfg = {}
+    mid = re.search(r'id\s*:\s*"([^"]+)"', body)
+    mat = re.search(r"material\s*:\s*Material\.(\w+)", body)
+    maxage = re.search(r"maxAge\s*:\s*([0-9]+)", body)
+    grow = re.search(r"growMs\s*:\s*([0-9]+)", body)
+    if not (mid and mat and maxage and grow): return None
+    cfg["material"] = mat.group(1)
+    cfg["maxAge"] = int(maxage.group(1))
+    cfg["growMs"] = int(grow.group(1))
+    # stages
+    if "WT_SMALL_STEPS" in body:
+        cfg["stages"] = "small"
+    else:
+        sm = re.search(r"stages\s*:\s*(\[[^\]]*\])", body, re.S)
+        cfg["stages"] = "custom" if sm else "small"
+    # drops
+    drops = []
+    for d in re.finditer(r'\{id:\s*"([^"]+)"\s*,\s*chance:\s*([0-9.]+)\}', body):
+        drops.append({"id": d.group(1), "chance": float(d.group(2))})
+    weighted = []
+    for d in re.finditer(r'\{id:\s*"([^"]+)"\s*,\s*weight:\s*([0-9.]+)\}', body):
+        weighted.append({"id": d.group(1), "weight": float(d.group(2))})
+    if weighted: cfg["weightedDrops"] = weighted
+    elif drops: cfg["drops"] = drops
+    else: return None
+    cfg["cropId"] = mid.group(1)
+    return cfg
+
+def gen_crops():
+    out = {}
+    for sub in ["seed", "gandi", "yurenjie", "hetun"]:
+        base = SCRIPTS / sub
+        if not base.exists(): continue
+        for f in sorted(base.glob("*.js")):
+            text = f.read_text(encoding="utf-8")
+            if "WT_setupCrop" not in text: continue
+            parsed = parse_crop(text)
+            if parsed:
+                out[f"{sub}/{f.stem}"] = parsed
+    _write_yaml(OUT / "crops.yml", out)
+    print(f"crops: {len(out)}")
+
+# ---------- fishing ----------
+def gen_fishing():
+    f = SCRIPTS / "diaoyu.js"
+    if not f.exists():
+        print("fishing: diaoyu.js 缺失"); return
+    text = f.read_text(encoding="utf-8")
+    tables = {}
+    for t in re.finditer(r"const\s+(\w+_DROPS)\s*=\s*\[(.*?)\];", text, re.S):
+        name, body = t.group(1), t.group(2)
+        items = []
+        for d in re.finditer(r'itemId:\s*"([^"]+)"\s*,\s*weight:\s*([0-9]+)', body):
+            items.append({"id": d.group(1), "weight": int(d.group(2))})
+        tables[name] = items
+    # bait -> table 映射
+    mapping = re.findall(r'"([^"]+)"\s*:\s*(\w+)\s*,', text)
+    baits = {}
+    for bait, table in mapping:
+        if table in tables:
+            baits[bait] = tables[table]
+    rod = re.search(r'rodId:\s*"([^"]+)"', text)
+    out = {"rod": rod.group(1) if rod else "WT_BAIWEIDIAOGAN", "baits": baits}
+    _write_yaml(OUT / "fishing.yml", out)
+    total = sum(len(v) for v in baits.values())
+    print(f"fishing: rod={out['rod']} baits={len(baits)} drops={total}")
+
+# ---------- yaml writer (递归块式 YAML，键全部加引号，列表用块式) ----------
+def _scalar(v):
+    if isinstance(v, bool): return "true" if v else "false"
+    if isinstance(v, (int, float)): return str(v)
+    return '"' + str(v).replace('"', '\\"') + '"'
+
+def _emit(data, indent):
+    pad = "  " * indent
+    lines = []
+    if isinstance(data, dict):
+        for k, v in data.items():
+            key = '"' + str(k) + '"'
+            if isinstance(v, dict):
+                lines.append(f"{pad}{key}:")
+                lines.extend(_emit(v, indent + 1))
+            elif isinstance(v, list):
+                lines.append(f"{pad}{key}:")
+                for item in v:
+                    if isinstance(item, dict):
+                        inner = ", ".join(f'"{ik}": {_scalar(iv)}' for ik, iv in item.items())
+                        lines.append(f"{pad}  - {{{inner}}}")
+                    else:
+                        lines.append(f"{pad}  - {_scalar(item)}")
+            else:
+                lines.append(f"{pad}{key}: {_scalar(v)}")
+    return lines
+
+def _write_yaml(path, data):
+    text = "\n".join(_emit(data, 0)) + "\n"
+    path.write_text(text, encoding="utf-8")
+
+if __name__ == "__main__":
+    gen_consumables()
+    gen_crops()
+    gen_fishing()
+    print("done -> plugin/src/main/resources/data/")

@@ -1,0 +1,164 @@
+"1":
+  "kind": "use"
+  "food": 1
+  "saturation": 1
+  "exhaustion": 0.1
+  "requireHungry": true
+"10":
+  "kind": "use"
+  "food": 10
+  "saturation": 10
+  "exhaustion": 1
+  "requireHungry": true
+"11":
+  "kind": "use"
+  "food": 11
+  "saturation": 11
+  "exhaustion": 1.1
+  "requireHungry": true
+"12":
+  "kind": "use"
+  "food": 12
+  "saturation": 12
+  "exhaustion": 1.2
+  "requireHungry": true
+"13":
+  "kind": "use"
+  "food": 13
+  "saturation": 13
+  "exhaustion": 1.3
+  "requireHungry": true
+"14":
+  "kind": "use"
+  "food": 14
+  "saturation": 14
+  "exhaustion": 1.4
+  "requireHungry": true
+"15":
+  "kind": "use"
+  "food": 15
+  "saturation": 15
+  "exhaustion": 1.5
+  "requireHungry": true
+"16":
+  "kind": "use"
+  "food": 16
+  "saturation": 16
+  "exhaustion": 1.6
+  "requireHungry": true
+"17":
+  "kind": "use"
+  "food": 17
+  "saturation": 17
+  "exhaustion": 1.7
+  "requireHungry": true
+"18":
+  "kind": "use"
+  "food": 18
+  "saturation": 18
+  "exhaustion": 1.8
+  "requireHungry": true
+"19":
+  "kind": "use"
+  "food": 19
+  "saturation": 19
+  "exhaustion": 1.9
+  "requireHungry": true
+"2":
+  "kind": "use"
+  "food": 2
+  "saturation": 2
+  "exhaustion": 0.2
+  "requireHungry": true
+"20":
+  "kind": "use"
+  "food": 20
+  "saturation": 20
+  "exhaustion": 2
+  "requireHungry": true
+"3":
+  "kind": "use"
+  "food": 3
+  "saturation": 3
+  "exhaustion": 0.3
+  "requireHungry": true
+"4":
+  "kind": "use"
+  "food": 4
+  "saturation": 4
+  "exhaustion": 0.4
+  "requireHungry": true
+"5":
+  "kind": "use"
+  "food": 5
+  "saturation": 5
+  "exhaustion": 0.5
+  "requireHungry": true
+"6":
+  "kind": "use"
+  "food": 6
+  "saturation": 6
+  "exhaustion": 0.6
+  "requireHungry": true
+"7":
+  "kind": "use"
+  "food": 7
+  "saturation": 7
+  "exhaustion": 0.7
+  "requireHungry": true
+"8":
+  "kind": "use"
+  "food": 8
+  "saturation": 8
+  "exhaustion": 0.8
+  "requireHungry": true
+"9":
+  "kind": "use"
+  "food": 9
+  "saturation": 9
+  "exhaustion": 0.9
+  "requireHungry": true
+"baohe":
+  "kind": "use"
+  "saturationSet": 20
+  "message": "成功食用！"
+"baojian":
+  "kind": "use"
+  "satRegen": 1
+  "unsatRegen": 1
+  "starvation": 2000
+  "message": "成功食用！"
+"gouliang":
+  "kind": "use"
+  "food": 7
+  "saturation": 7
+  "exhaustion": 0.7
+  "requireHungry": true
+"gz1":
+  "kind": "eat"
+  "food": 2
+  "saturation": 2
+  "exhaustion": 1
+"gz2":
+  "kind": "eat"
+  "food": 6
+  "saturation": 6
+  "exhaustion": 1.5
+"huifu":
+  "kind": "use"
+  "satRegen": 10
+  "unsatRegen": 80
+  "starvation": 80
+  "maxAir": 300
+  "message": "恢复完成！"
+"liaolidabian":
+  "kind": "use"
+  "food": 7
+  "saturation": 7
+  "exhaustion": 0.7
+  "requireHungry": true
+"rou":
+  "kind": "eat"
+  "food": 1
+  "saturation": 2
+  "exhaustion": 1

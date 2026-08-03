@@ -22,6 +22,7 @@ public final class Setup {
         GroupLoader.load();
         RecipeTypes.load();
         preloadDisplays();
+        com.haiman233.worldtaste.behavior.Behaviors.loadData();
         ItemsLoader.load();
         FoodsLoader.load();
         MobDropsLoader.load();
@@ -30,6 +31,7 @@ public final class Setup {
         MultiBlockLoader.load();
         TemplateLoader.load();
         GeoLoader.load();
+        com.haiman233.worldtaste.behavior.Behaviors.registerListeners();
         WT.plugin.getLogger().info("基础内容加载完成，耗时 " + (System.currentTimeMillis() - t) + "ms");
     }
 

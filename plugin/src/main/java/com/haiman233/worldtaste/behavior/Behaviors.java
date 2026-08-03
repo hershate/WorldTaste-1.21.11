@@ -32,6 +32,7 @@ public final class Behaviors {
     public static void registerListeners() {
         org.bukkit.Bukkit.getPluginManager().registerEvents(FishingListener.INSTANCE, WT.plugin);
         org.bukkit.Bukkit.getPluginManager().registerEvents(CropListener.INSTANCE, WT.plugin);
+        org.bukkit.Bukkit.getPluginManager().registerEvents(MobDropListener.INSTANCE, WT.plugin);
     }
 
     private static void loadConsumables() {
@@ -51,6 +52,21 @@ public final class Behaviors {
             if (s.isSet("unsatRegen")) o.unsatRegen = s.getInt("unsatRegen");
             if (s.isSet("starvation")) o.starvation = s.getInt("starvation");
             if (s.isSet("maxAir")) o.maxAir = s.getInt("maxAir");
+            if (s.isSet("remainingAir")) o.remainingAir = s.getInt("remainingAir");
+            if (s.isSet("freezeTicks")) o.freezeTicks = s.getInt("freezeTicks");
+            if (s.isSet("randomFood")) o.randomFood = s.getInt("randomFood");
+            o.offhandFlint = s.getBoolean("offhandFlint", false);
+            o.consumeOffhand = s.getBoolean("consumeOffhand", false);
+            if (s.isList("potions")) {
+                for (Map<?, ?> pm : s.getMapList("potions")) {
+                    Object t = pm.get("type");
+                    Object d = pm.get("duration");
+                    Object a = pm.get("amplifier");
+                    if (t != null && d instanceof Number && a instanceof Number) {
+                        o.potions.add(new Potion(t.toString(), ((Number) d).intValue(), ((Number) a).intValue()));
+                    }
+                }
+            }
             o.message = s.getString("message");
             consumables.put(name, o);
         }
@@ -83,7 +99,7 @@ public final class Behaviors {
         WT.plugin.getLogger().info("行为数据: crops=" + crops.size());
     }
 
-    /** 食物消耗参数（对应原 WT_eatConsumable opts）。 */
+    /** 食物消耗参数（对应原 WT_eatConsumable opts，并扩展覆盖独立脚本的空气/冻结/药水等）。 */
     public static final class ConsumableOpts {
         public boolean use = true;
         public Double food;
@@ -96,7 +112,22 @@ public final class Behaviors {
         public Integer unsatRegen;
         public Integer starvation;
         public Integer maxAir;
+        public Integer remainingAir;
+        public Integer freezeTicks;
+        public Integer randomFood;
+        public boolean offhandFlint;
+        public boolean consumeOffhand;
+        public final List<Potion> potions = new ArrayList<>();
         public String message;
+    }
+
+    public static final class Potion {
+        public final String type;
+        public final int duration;
+        public final int amplifier;
+        public Potion(String type, int duration, int amplifier) {
+            this.type = type; this.duration = duration; this.amplifier = amplifier;
+        }
     }
 
     /** 作物参数（对应原 WT_setupCrop cfg）。 */

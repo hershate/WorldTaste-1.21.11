@@ -24,18 +24,67 @@ OUT.mkdir(parents=True, exist_ok=True)
 
 # ---------- consumables ----------
 def parse_consumable(text):
-    """匹配 WT_eatConsumable(event, { ... }) 或 WT_eatFood(event, a, b, c)。返回 dict 或 None。"""
+    """抽取食物脚本行为。优先匹配 lib 形式(WT_eatConsumable/WT_eatFood)，否则解析独立脚本的
+    setter/药水调用，产出统一 opts。返回 dict 或 None。"""
+    opts = {}
+    # 1) lib: WT_eatConsumable(event, { ... })
     m = re.search(r"WT_eatConsumable\s*\(\s*event\s*,\s*\{([^}]*)\}", text, re.S)
     if m:
-        body = m.group(1)
-        opts = {}
-        for k, v in re.findall(r"(\w+)\s*:\s*(\"[^\"]*\"|true|false|-?[0-9]+(?:\.[0-9]+)?)", body):
+        for k, v in re.findall(r"(\w+)\s*:\s*(\"[^\"]*\"|true|false|-?[0-9]+(?:\.[0-9]+)?)", m.group(1)):
             opts[k] = _coerce(v)
-        return {"kind": "use", **opts}
+        opts["kind"] = "use"
+        return opts
+    # 2) lib: WT_eatFood(event, a, b, c)
     m = re.search(r"WT_eatFood\s*\(\s*event\s*,\s*([0-9]+(?:\.[0-9]+)?)\s*,\s*([0-9]+(?:\.[0-9]+)?)\s*,\s*([0-9]+(?:\.[0-9]+)?)", text)
     if m:
         return {"kind": "eat", "food": _coerce(m.group(1)), "saturation": _coerce(m.group(2)), "exhaustion": _coerce(m.group(3))}
-    return None
+    # 3) 独立脚本：解析 setter 与药水
+    if "function onUse" not in text and "function onEat" not in text:
+        return None
+    opts["kind"] = "use" if "function onUse" in text else "eat"
+    m = re.search(r"setFoodLevel\(\s*\w+\.getFoodLevel\(\)\s*\+\s*([0-9]+)\s*\)", text)
+    if m: opts["food"] = int(m.group(1))
+    else:
+        m = re.search(r"setFoodLevel\(\s*([0-9]+)\s*\)", text)
+        if m: opts["foodSet"] = int(m.group(1))
+    if "Math.random()" in text and "getFoodLevel" in text and "food" not in opts and "foodSet" not in opts:
+        opts["randomFood"] = 12  # jiu: 1..12
+    m = re.search(r"setSaturation\(\s*\w+\.getSaturation\(\)\s*\+\s*([0-9]+)\s*\)", text)
+    if m: opts["saturation"] = int(m.group(1))
+    else:
+        m = re.search(r"setSaturation\(\s*([0-9]+)\s*\)", text)
+        if m: opts["saturationSet"] = int(m.group(1))
+    m = re.search(r"setExhaustion\(\s*\w+\.getExhaustion\(\)\s*-\s*([0-9]+(?:\.[0-9]+)?)\s*\)", text)
+    if m: opts["exhaustion"] = _coerce(m.group(1))
+    m = re.search(r"setRemainingAir\(\s*([0-9]+)\s*\)", text)
+    if m: opts["remainingAir"] = int(m.group(1))
+    m = re.search(r"setFreezeTicks\(\s*([0-9]+)\s*\)", text)
+    if m: opts["freezeTicks"] = int(m.group(1))
+    m = re.search(r"setSaturatedRegenRate\(\s*([0-9]+)\s*\)", text)
+    if m: opts["satRegen"] = int(m.group(1))
+    m = re.search(r"setUnsaturatedRegenRate\(\s*([0-9]+)\s*\)", text)
+    if m: opts["unsatRegen"] = int(m.group(1))
+    m = re.search(r"setStarvationRate\(\s*([0-9]+)\s*\)", text)
+    if m: opts["starvation"] = int(m.group(1))
+    m = re.search(r"setMaximumAir\(\s*([0-9]+)\s*\)", text)
+    if m: opts["maxAir"] = int(m.group(1))
+    potions = []
+    for pm in re.finditer(r"(?:createPotionEffect|new\s+org\.bukkit\.potion\.PotionEffect)\s*\(\s*([^,]+?),\s*([0-9]+)\s*,\s*([0-9]+)", text):
+        ptype = pm.group(1).strip().split(".")[-1]
+        potions.append({"type": ptype, "duration": int(pm.group(2)), "amplifier": int(pm.group(3))})
+    if potions:
+        # 变量型 type（如 jiu 的 effectType）回退为脚本中首个 PotionEffectType.X
+        real_types = re.findall(r"PotionEffectType\.(\w+)", text)
+        for p in potions:
+            if not p["type"].replace("_", "").isupper() and real_types:
+                p["type"] = real_types[0]
+        opts["potions"] = potions
+    if "FLINT_AND_STEEL" in text: opts["offhandFlint"] = True
+    if re.search(r"offHandItem\.setAmount", text): opts["consumeOffhand"] = True
+    if "getFoodLevel() >= 20" in text or "getFoodLevel()>=20" in text: opts["requireHungry"] = True
+    if len(opts) <= 1:  # 仅 kind
+        return None
+    return opts
 
 def _coerce(v):
     if v.startswith('"'): return v.strip('"')
@@ -51,7 +100,6 @@ def gen_consumables():
         for f in sorted(base.glob("*.js")):
             if f.name in ("diaoyu.js",): continue
             text = f.read_text(encoding="utf-8")
-            if "WT_eatConsumable" not in text and "WT_eatFood" not in text: continue
             parsed = parse_consumable(text)
             if parsed:
                 name = f.stem if d == "" else f"{d}/{f.stem}"

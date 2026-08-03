@@ -48,4 +48,5 @@ WorldTaste 只能运行在**保留 GraalVM JS 的 RSC（≤ `28.7-Modified` 系�
 | [architecture.md](architecture.md) | YAML 配置 ↔ RSC Reader 映射表（含条目数）、脚本/公共库整体架构 |
 | [scripts.md](scripts.md) | 脚本系统详解：公共库 API、JS 全局绑定、事件钩子、生成器、独立脚本清单 |
 | [compatibility.md](compatibility.md) | RSC 版本兼容性：WorldTaste 需 JS-RSC，而 REF 为无脚本的 29.0-PaperPure |
+| [standalone-plugin.md](standalone-plugin.md) | **独立 Slimefun4.1 插件改写说明**（plugin/ 工程：架构/构建/脚本行为移植/已知差距） |
 | [release/](release/) | 各版本基线记录 |

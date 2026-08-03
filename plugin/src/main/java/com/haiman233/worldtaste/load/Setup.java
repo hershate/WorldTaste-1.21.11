@@ -25,6 +25,11 @@ public final class Setup {
         ItemsLoader.load();
         FoodsLoader.load();
         MobDropsLoader.load();
+        MenuLoader.load();
+        RecipeMachineLoader.load();
+        MultiBlockLoader.load();
+        TemplateLoader.load();
+        GeoLoader.load();
         WT.plugin.getLogger().info("基础内容加载完成，耗时 " + (System.currentTimeMillis() - t) + "ms");
     }
 

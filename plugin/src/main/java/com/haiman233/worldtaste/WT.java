@@ -1,5 +1,6 @@
 package com.haiman233.worldtaste;
 
+import com.haiman233.worldtaste.machines.MenuDef;
 import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
 import java.util.HashMap;
@@ -19,6 +20,8 @@ public final class WT {
     public static final Map<String, RecipeType> recipeTypes = new HashMap<>();
     /** id(大写) -> 预加载的展示物品（供跨文件 material_type:slimefun 引用解析） */
     public static final Map<String, ItemStack> preload = new HashMap<>();
+    /** id -> 菜单定义（来自 menus.yml，供机器 GUI 使用） */
+    public static final Map<String, MenuDef> menus = new HashMap<>();
     /** itemId -> 脚本名（用于后续挂接 Java 行为） */
     public static final Map<String, String> itemScripts = new HashMap<>();
 

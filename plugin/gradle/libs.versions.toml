@@ -1,0 +1,10 @@
+[versions]
+spotless = "7.0.2"
+shadow = "9.3.2"
+
+[libraries]
+paper-api = { module = "io.papermc.paper:paper-api", version = "1.21.11-R0.1-SNAPSHOT" }
+
+[plugins]
+spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
+shadow = { id = "com.gradleup.shadow", version.ref = "shadow" }

@@ -32,6 +32,12 @@ public final class MultiBlockLoader {
                 RecipeType rt = RecipeTypes.resolve(s.getString("recipe_type", "NULL"));
                 ItemStack[] structure = Read.recipe(s.getConfigurationSection("recipe"), 9);
                 int work = s.getInt("work", 5);
+                // 校验 work 槽位：越界或该槽未填方块会在右键时抛 AIOOBE/NPE
+                if (work < 1 || work > 9 || structure[work - 1] == null) {
+                    WT.log(id + ": work 槽位无效（work=" + work + "，需在 1..9 且对应结构槽非空），跳过");
+                    skip++;
+                    continue;
+                }
                 SoundEffect sound = parseSound(s.getString("sound"));
                 Map<ItemStack[], ItemStack> recipes = readMbRecipes(s.getConfigurationSection("recipes"));
                 WTMultiBlockMachine m = new WTMultiBlockMachine(g, sfis, structure, recipes, work, sound);

@@ -131,6 +131,12 @@ public class WTRecipeMachine extends AContainer implements RecipeDisplayItem {
                 if (inv != null) {
                     inv.dropItems(b.getLocation(), inputSlots);
                     inv.dropItems(b.getLocation(), outputSlots);
+                    // 额外功能槽（如模板机器的模板槽）内容物也掉落，避免被吞
+                    java.util.Set<Integer> extra = extraFunctionalSlots();
+                    if (!extra.isEmpty()) {
+                        int[] extraSlots = extra.stream().mapToInt(Integer::intValue).toArray();
+                        inv.dropItems(b.getLocation(), extraSlots);
+                    }
                 }
                 active.remove(b.getLocation());
                 getMachineProcessor().endOperation(b);
@@ -157,7 +163,7 @@ public class WTRecipeMachine extends AContainer implements RecipeDisplayItem {
         if (!takeCharge(b.getLocation())) return;
         if (!op.isFinished()) {
             getMachineProcessor().updateProgressBar(inv, pslot, op);
-            op.addProgress(1);
+            op.addProgress(getSpeed());
             return;
         }
         WTRecipe r = active.remove(b.getLocation());
@@ -224,6 +230,19 @@ public class WTRecipeMachine extends AContainer implements RecipeDisplayItem {
             }
             if (distinct != n) continue;
             if (!InvUtils.fitAll(inv.toInventory(), recipe.getOutput(), outputSlots)) return null;
+            // tick 异步执行：匹配用的是快照，消耗前对选中槽位的实时内容再校验，避免竞态吞错物品
+            boolean stillValid = true;
+            for (int i = 0; i < n; i++) {
+                if (recipe.isNoConsume(i) || chosen[i] < 0) continue;
+                ItemStack live = inv.getItemInSlot(slots[chosen[i]]);
+                ItemStack need = inputs[i];
+                if (live == null || live.getAmount() < need.getAmount()
+                        || !SlimefunUtils.isItemSimilar(live, need, true)) {
+                    stillValid = false;
+                    break;
+                }
+            }
+            if (!stillValid) continue;
             for (int i = 0; i < n; i++) {
                 if (!recipe.isNoConsume(i) && chosen[i] >= 0) {
                     inv.consumeItem(slots[chosen[i]], inputs[i].getAmount());

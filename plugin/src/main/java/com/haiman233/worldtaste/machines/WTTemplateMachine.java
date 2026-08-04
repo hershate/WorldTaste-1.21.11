@@ -28,6 +28,9 @@ public class WTTemplateMachine extends WTRecipeMachine {
         super(group, item, rt, recipe, input, output, allRecipes, capacity, consumption, speed, menu, hideAll);
         this.templateSlot = templateSlot;
         this.byTemplate = byTemplate;
+        // super() 末尾重建 preset 时本类字段 templateSlot 尚未赋值（读到 0），
+        // 导致真正的模板槽被背景封死。字段就绪后再重建一次 preset。
+        createPreset(this, getInventoryTitle(), this::constructMenu);
     }
 
     @Override

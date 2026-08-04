@@ -59,8 +59,15 @@ public class WTRecipe extends MachineRecipe {
             ItemStack o = base[i];
             if (o == null) continue;
             int slot = (outSlots != null && i < outSlots.length) ? outSlots[i] : -1;
-            if (slot >= 0) inv.pushItem(o.clone(), slot);
-            else inv.pushItem(o.clone(), freeSlots);
+            // 绑定槽推入有剩余时回退到自由槽，仍有剩余则掉落在机器旁（对齐 AContainer 的溢出处理）
+            ItemStack leftover = (slot >= 0) ? inv.pushItem(o.clone(), slot) : inv.pushItem(o.clone(), freeSlots);
+            if (leftover != null && leftover.getType() != org.bukkit.Material.AIR) {
+                ItemStack rest = inv.pushItem(leftover, freeSlots);
+                if (rest != null && rest.getType() != org.bukkit.Material.AIR
+                        && inv.getLocation().getWorld() != null) {
+                    inv.getLocation().getWorld().dropItemNaturally(inv.getLocation(), rest);
+                }
+            }
         }
     }
 }

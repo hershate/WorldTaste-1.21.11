@@ -63,9 +63,10 @@ public class WTWorkbench extends WTRecipeMachine {
     }
 
     private void craft(BlockMenu menu) {
+        // 先扣能量再匹配（findNextRecipe 会立即消耗输入），避免没电时吞掉输入物品。
+        if (!takeCharge(menu.getLocation())) return;
         MachineRecipe next = findNextRecipe(menu);
         if (!(next instanceof WTRecipe)) return;
-        if (!takeCharge(menu.getLocation())) return;
         WTRecipe r = (WTRecipe) next;
         r.pushOutputs(menu, getOutputSlots());
     }

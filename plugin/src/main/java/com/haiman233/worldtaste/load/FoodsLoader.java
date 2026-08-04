@@ -24,7 +24,7 @@ public final class FoodsLoader {
 
     public static void load() {
         YamlConfiguration y = Yaml.loadResource(WT.plugin, "foods.yml");
-        int ok = 0, skip = 0;
+        int ok = 0, skip = 0, foodFail = 0;
         for (String id : y.getKeys(false)) {
             ConfigurationSection s = y.getConfigurationSection(id);
             if (s == null) continue;
@@ -37,8 +37,9 @@ public final class FoodsLoader {
                 if (display == null) { WT.log(effId + ": 无展示物品"); skip++; continue; }
                 display = display.clone();
                 float eatSeconds = (float) s.getDouble("eatseconds", s.getDouble("eat_seconds", 0));
-                FoodHelper.apply(display, s.getInt("nutrition", 0), (float) s.getDouble("saturation", 0),
+                boolean foodOk = FoodHelper.apply(display, s.getInt("nutrition", 0), (float) s.getDouble("saturation", 0),
                         s.getBoolean("always_eatable", false), eatSeconds);
+                if (!foodOk) foodFail++;
 
                 SlimefunItemStack sfis = new SlimefunItemStack(effId, display);
                 RecipeType rt = RecipeTypes.resolve(s.getString("recipe_type", "NULL"));
@@ -60,5 +61,9 @@ public final class FoodsLoader {
             }
         }
         WT.plugin.getLogger().info("foods.yml: 注册 " + ok + ", 跳过 " + skip);
+        if (foodFail > 0) {
+            WT.plugin.getLogger().severe("foods.yml: " + foodFail
+                    + " 个食物的 FoodComponent 应用失败（反射路径在当前服务端不可用），这些食物将不可食用！");
+        }
     }
 }

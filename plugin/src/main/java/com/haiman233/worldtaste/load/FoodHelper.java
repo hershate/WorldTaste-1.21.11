@@ -13,8 +13,10 @@ public final class FoodHelper {
 
     private FoodHelper() {}
 
-    public static void apply(ItemStack stack, int nutrition, float saturation, boolean canAlwaysEat, float eatSeconds) {
-        if (stack == null || nutrition <= 0) return;
+    /** 应用 FoodComponent。返回是否成功（反射路径失败时返回 false，便于上层统计升级告警）。 */
+    public static boolean apply(ItemStack stack, int nutrition, float saturation, boolean canAlwaysEat, float eatSeconds) {
+        if (stack == null || nutrition <= 0) return true;
+        boolean[] ok = {true};
         stack.editMeta(meta -> {
             try {
                 Class<?> craft = Class.forName("org.bukkit.craftbukkit.inventory.components.CraftFoodComponent");
@@ -32,8 +34,10 @@ public final class FoodHelper {
                 }
                 meta.setFood(food);
             } catch (Throwable e) {
+                ok[0] = false;
                 WT.log("FoodComponent 应用失败: " + e.getMessage());
             }
         });
+        return ok[0];
     }
 }

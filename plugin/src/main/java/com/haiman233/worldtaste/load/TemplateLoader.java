@@ -3,19 +3,21 @@ package com.haiman233.worldtaste.load;
 import com.haiman233.worldtaste.WT;
 import com.haiman233.worldtaste.machines.MenuDef;
 import com.haiman233.worldtaste.machines.WTRecipe;
-import com.haiman233.worldtaste.machines.WTRecipeMachine;
+import com.haiman233.worldtaste.machines.WTTemplateMachine;
 import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.inventory.ItemStack;
 
 /**
- * 加载 template_machines.yml。模板机器原按“模板物品”分组配方；此处将所有模板下的配方拍平为一张配方表，
- * 以通用 {@link WTRecipeMachine} 注册（功能等价：均可合成，省略模板物品门槛）。模板门槛若需保留，后续单独实现。
+ * 加载 template_machines.yml → {@link WTTemplateMachine}。配方按“模板物品 id”分组；
+ * 玩家在 templateSlot 放入对应模板后，机器仅匹配该模板下的配方（模板不消耗）。
  */
 public final class TemplateLoader {
 
@@ -41,18 +43,24 @@ public final class TemplateLoader {
                 if (output.length == 0) output = new int[] { 16 };
                 int capacity = s.getInt("capacity", 128);
                 int consumption = s.getInt("consumption", s.getInt("energyPerCraft", 8));
+                int templateSlot = s.getInt("templateSlot", 21);
                 boolean hideAll = s.getBoolean("hideAllRecipes", false);
-                List<WTRecipe> recipes = new ArrayList<>();
+
+                Map<String, List<WTRecipe>> byTemplate = new HashMap<>();
+                List<WTRecipe> all = new ArrayList<>();
                 ConfigurationSection recipesSec = s.getConfigurationSection("recipes");
                 if (recipesSec != null) {
                     for (String tplId : recipesSec.getKeys(false)) {
                         ConfigurationSection tpl = recipesSec.getConfigurationSection(tplId);
-                        if (tpl != null) recipes.addAll(RecipeMachineLoader.readRecipes(tpl, input.length));
+                        if (tpl == null) continue;
+                        List<WTRecipe> recs = RecipeMachineLoader.readRecipes(tpl, input.length);
+                        byTemplate.put(tplId.toUpperCase(java.util.Locale.ROOT), recs);
+                        all.addAll(recs);
                     }
                 }
                 MenuDef menu = WT.menus.get(id);
-                WTRecipeMachine m = new WTRecipeMachine(g, sfis, rt, craftRecipe, input, output, recipes,
-                        capacity, consumption, 1, menu, hideAll);
+                WTTemplateMachine m = new WTTemplateMachine(g, sfis, rt, craftRecipe, input, output, all,
+                        byTemplate, capacity, consumption, 1, menu, hideAll, templateSlot);
                 m.register(WT.plugin);
                 ok++;
             } catch (Exception e) {

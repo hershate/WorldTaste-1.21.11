@@ -77,6 +77,11 @@ public class WTRecipeMachine extends AContainer implements RecipeDisplayItem {
         return (menu != null && menu.progressSlot >= 0) ? menu.progressSlot : 22;
     }
 
+    /** 额外的可交互槽位（不会被背景填充阻挡），子类（如模板机器）可覆盖以加入模板槽等。 */
+    protected java.util.Set<Integer> extraFunctionalSlots() {
+        return java.util.Collections.emptySet();
+    }
+
     @Override
     protected void constructMenu(BlockMenuPreset preset) {
         Set<Integer> placed = new HashSet<>();
@@ -95,8 +100,9 @@ public class WTRecipeMachine extends AContainer implements RecipeDisplayItem {
         if (pslot >= 0) functional.add(pslot);
         // 背景填充剩余槽位
         int size = (menu != null && menu.size > 0) ? menu.size : 27;
+        java.util.Set<Integer> extra = extraFunctionalSlots();
         for (int i = 0; i < size; i++) {
-            if (!functional.contains(i) && !placed.contains(i)) {
+            if (!functional.contains(i) && !placed.contains(i) && !extra.contains(i)) {
                 preset.addItem(i, ChestMenuUtils.getBackground(), ChestMenuUtils.getEmptyClickHandler());
             }
         }
@@ -158,6 +164,11 @@ public class WTRecipeMachine extends AContainer implements RecipeDisplayItem {
 
     @Override
     protected MachineRecipe findNextRecipe(BlockMenu inv) {
+        return matchRecipes(inv, recipes);
+    }
+
+    /** 在给定配方列表中匹配输入（供模板机器按当前模板筛选后复用）。 */
+    protected MachineRecipe matchRecipes(BlockMenu inv, List<WTRecipe> recipeList) {
         int[] slots = inputSlots;
         int slotCount = slots.length;
         ItemStack[] slotItems = new ItemStack[slotCount];
@@ -165,7 +176,7 @@ public class WTRecipeMachine extends AContainer implements RecipeDisplayItem {
             ItemStack it = inv.getItemInSlot(slots[s]);
             slotItems[s] = (it == null) ? null : ItemStackWrapper.wrap(it);
         }
-        for (WTRecipe recipe : recipes) {
+        for (WTRecipe recipe : recipeList) {
             ItemStack[] inputs = recipe.getInput();
             int n = inputs.length;
             int[] chosen = new int[n];

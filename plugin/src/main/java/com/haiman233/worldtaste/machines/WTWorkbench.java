@@ -47,7 +47,12 @@ public class WTWorkbench extends WTRecipeMachine {
 
             @Override
             public boolean canOpen(Block b, Player p) {
-                return p.hasPermission("slimefun.inventory.bypass") || WTWorkbench.this.canUse(p, false);
+                if (p.hasPermission("slimefun.inventory.bypass")) return true;
+                return WTWorkbench.this.canUse(p, false)
+                        && (io.github.thebusybiscuit.slimefun4.implementation.Slimefun.instance().isUnitTest()
+                        || io.github.thebusybiscuit.slimefun4.implementation.Slimefun.getProtectionManager()
+                                .hasPermission(p, b.getLocation(),
+                                        io.github.thebusybiscuit.slimefun4.libraries.dough.protection.Interaction.INTERACT_BLOCK));
             }
         };
     }
@@ -58,9 +63,9 @@ public class WTWorkbench extends WTRecipeMachine {
     }
 
     private void craft(BlockMenu menu) {
-        if (!takeCharge(menu.getLocation())) return;
         MachineRecipe next = findNextRecipe(menu);
         if (!(next instanceof WTRecipe)) return;
+        if (!takeCharge(menu.getLocation())) return;
         WTRecipe r = (WTRecipe) next;
         r.pushOutputs(menu, getOutputSlots());
     }

@@ -108,6 +108,11 @@ public final class RecipeMachineLoader {
                 int[] outSlots = outSlotList.stream().mapToInt(Integer::intValue).toArray();
                 boolean chooseOne = r.getBoolean("chooseOne", false);
                 int[] ch = chances.stream().mapToInt(Integer::intValue).toArray();
+                // CraftingOperation 校验 input/output 非空，空配方会令 tick 抛异常，跳过。
+                if (input.length == 0 || outs.isEmpty()) {
+                    WT.log("配方 " + name + " 输入或输出为空，跳过");
+                    continue;
+                }
                 out.add(new WTRecipe(seconds, input, outs.toArray(new ItemStack[0]), ch, chooseOne, noConsume, inSlots, outSlots));
             } catch (Exception e) {
                 WT.log("配方 " + name + " 解析失败: " + e);

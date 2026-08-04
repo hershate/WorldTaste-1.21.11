@@ -12,7 +12,7 @@ public final class Setup {
 
     /** 含有可被其它配方以 material_type:slimefun 引用的“物品”的文件（需预加载展示堆）。 */
     private static final String[] ITEM_FILES = {
-        "items.yml", "foods.yml", "mob_drops.yml", "geo_resources.yml",
+        "items.yml", "machines.yml", "foods.yml", "mob_drops.yml", "geo_resources.yml",
         "recipe_machines.yml", "mb_machines.yml", "linked_recipe_machines.yml",
         "template_machines.yml", "workbenches.yml"
     };

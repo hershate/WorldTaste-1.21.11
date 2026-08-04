@@ -56,6 +56,10 @@ public class WTRecipeMachine extends AContainer implements RecipeDisplayItem {
         setProcessingSpeed(Math.max(1, speed));
         setCapacity(Math.max(1, capacity));
         setEnergyConsumption(Math.max(1, Math.min(consumption, Math.max(1, capacity))));
+        // AContainer 在 super() 中已用 this::constructMenu 建过 preset（此时字段尚未赋值），
+        // 这里字段就绪后重建 preset（覆盖前一个），并补设进度条。
+        createPreset(this, getInventoryTitle(), this::constructMenu);
+        getMachineProcessor().setProgressBar(progressBar);
     }
 
     @Override
@@ -84,6 +88,8 @@ public class WTRecipeMachine extends AContainer implements RecipeDisplayItem {
 
     @Override
     protected void constructMenu(BlockMenuPreset preset) {
+        // super() 阶段会提前调用一次（字段为 null），此时跳过；由构造器末尾重建 preset 时再真正构建。
+        if (inputSlots == null || outputSlots == null) return;
         Set<Integer> placed = new HashSet<>();
         // 装饰（来自菜单）
         if (menu != null) {
@@ -210,7 +216,6 @@ public class WTRecipeMachine extends AContainer implements RecipeDisplayItem {
                 }
             }
             if (failed || matched != n) continue;
-            if (matched != n) continue;
             int distinct = 0;
             for (int i = 0; i < n; i++) {
                 boolean dup = false;

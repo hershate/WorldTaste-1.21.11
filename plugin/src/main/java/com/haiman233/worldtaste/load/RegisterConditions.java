@@ -55,10 +55,13 @@ public final class RegisterConditions {
             String[] t = target.split("\\.");
             int cmaj = Integer.parseInt(cur[0]);
             int cmin = cur.length > 1 ? Integer.parseInt(cur[1]) : 0;
+            int cpatch = cur.length > 2 ? Integer.parseInt(cur[2]) : 0;
             int tmaj = Integer.parseInt(t[0]);
             int tmin = t.length > 1 ? Integer.parseInt(t[1]) : 0;
+            int tpatch = t.length > 2 ? Integer.parseInt(t[2]) : 0;
             int cmp = Integer.compare(cmaj, tmaj);
             if (cmp == 0) cmp = Integer.compare(cmin, tmin);
+            if (cmp == 0) cmp = Integer.compare(cpatch, tpatch);
             switch (op) {
                 case ">": return cmp > 0;
                 case "<": return cmp < 0;

@@ -68,6 +68,10 @@ public final class SpecialItems {
         public ItemUseHandler getItemHandler() {
             return e -> {
                 Player p = e.getPlayer();
+                if (e.getHand() != org.bukkit.inventory.EquipmentSlot.HAND) {
+                    p.sendMessage("请主手持有相应物品");
+                    return;
+                }
                 ItemStack main = p.getInventory().getItemInMainHand();
                 if (main == null || main.getAmount() <= 0) return;
                 main.setAmount(main.getAmount() - 1);

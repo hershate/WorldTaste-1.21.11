@@ -35,8 +35,8 @@ public final class Read {
 
         String type = s.getString("material_type", "mc");
         String lower = material.toLowerCase(java.util.Locale.ROOT);
-        // 自动识别覆盖（与 RSC CommonUtils.readItem 一致）
-        if (lower.startsWith("ey") || lower.startsWith("ew")) type = "skull";
+        // 自动识别覆盖（与 RSC CommonUtils.readItem 一致，前缀判断区分大小写：base64 贴图以小写 ey 开头）
+        if (material.startsWith("ey") || material.startsWith("ew")) type = "skull";
         else if (lower.startsWith("http")) type = "skull_url";
         else if (HEX64.matcher(material).matches()) type = "skull_hash";
 
@@ -125,7 +125,7 @@ public final class Read {
             Color c = Color.fromRGB(r, g, b);
             if (meta instanceof LeatherArmorMeta) ((LeatherArmorMeta) meta).setColor(c);
             else if (meta instanceof PotionMeta) ((PotionMeta) meta).setColor(c);
-        } catch (NumberFormatException ignored) {
+        } catch (RuntimeException ignored) {
             WT.log("颜色格式错误: " + color);
         }
     }

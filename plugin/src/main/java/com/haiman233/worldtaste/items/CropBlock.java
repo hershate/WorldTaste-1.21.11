@@ -6,7 +6,6 @@ import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
-import io.github.thebusybiscuit.slimefun4.libraries.dough.items.CustomItemStack;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -38,6 +37,12 @@ public class CropBlock extends SlimefunItem {
         this.cfg = cfg;
     }
 
+    /** 不由 Slimefun 框架掉落种子本身（仅由 CropListener 在成熟时掉落作物/种子，对齐 wt_crop.js）。 */
+    @Override
+    public List<ItemStack> getDrops() {
+        return java.util.Collections.emptyList();
+    }
+
     @Override
     public void preRegister() {
         super.preRegister();
@@ -64,7 +69,7 @@ public class CropBlock extends SlimefunItem {
         long elapsed = now - last;
         for (int i = 0; i < SMALL_STEPS.length; i++) {
             if (elapsed < cfg.growMs * SMALL_STEPS[i]) {
-                if (i > 0) setStage(b, (int) Math.round(cfg.maxAge * ((double) i / SMALL_STEPS.length)));
+                if (i > 0) setStage(b, (int) Math.floor(cfg.maxAge * ((double) i / SMALL_STEPS.length)));
                 return;
             }
         }
@@ -118,7 +123,6 @@ public class CropBlock extends SlimefunItem {
             if (m == null) return;
             stack = new ItemStack(m);
         }
-        stack = CustomItemStack.create(stack, stack.getAmount());
-        b.getWorld().dropItemNaturally(b.getLocation(), stack);
+        b.getWorld().dropItemNaturally(b.getLocation(), stack.clone());
     }
 }

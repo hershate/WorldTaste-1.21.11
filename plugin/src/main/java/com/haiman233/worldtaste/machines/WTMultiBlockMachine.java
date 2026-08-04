@@ -114,16 +114,18 @@ public class WTMultiBlockMachine extends MultiBlockMachine {
     private BlockFace dispenserFaceGet() {
         int center = workIndex;
         ItemStack[] is = getRecipe();
-        if (center - 3 > 0) {
+        if (center - 3 >= 0) {
             ItemStack o1 = is[center - 3];
             if (o1 != null && o1.getType() == Material.DISPENSER) return BlockFace.UP;
         }
-        ItemStack o2 = is[center - 1];
-        if (o2 != null && o2.getType() == Material.DISPENSER) return BlockFace.EAST;
+        if (center - 1 >= 0) {
+            ItemStack o2 = is[center - 1];
+            if (o2 != null && o2.getType() == Material.DISPENSER) return BlockFace.EAST;
+        }
         if (center + 1 >= 9) return BlockFace.SELF;
         ItemStack o3 = is[center + 1];
         if (o3 != null && o3.getType() == Material.DISPENSER) return BlockFace.WEST;
-        if (center + 3 < 8) {
+        if (center + 3 < 9) {
             ItemStack o4 = is[center + 3];
             if (o4 != null && o4.getType() == Material.DISPENSER) return BlockFace.DOWN;
         }

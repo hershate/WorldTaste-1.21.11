@@ -21,11 +21,11 @@ public final class WorldTastePlugin extends JavaPlugin implements SlimefunAddon 
         getLogger().info("尘世百味 开始加载（独立版）...");
         try {
             Setup.loadAll();
+            getLogger().info("尘世百味 加载成功");
         } catch (Throwable e) {
             getLogger().severe("尘世百味 加载过程中出现异常: " + e);
             e.printStackTrace();
         }
-        getLogger().info("尘世百味 加载成功");
     }
 
     @Override

@@ -70,19 +70,29 @@ public final class RecipeMachineLoader {
             try {
                 int seconds = r.getInt("seconds", 1);
                 ConfigurationSection inSec = r.getConfigurationSection("input");
-                int nIn = inSec == null ? 0 : Math.max(1, inSec.getKeys(false).size());
-                ItemStack[] input = Read.recipe(inSec, Math.max(nIn, defaultInputSize));
-                input = compact(input);
-                boolean[] noConsume = new boolean[input.length];
+                List<ItemStack> inList = new ArrayList<>();
+                List<Integer> inSlotList = new ArrayList<>();
+                List<Boolean> ncList = new ArrayList<>();
                 boolean noConsumeAll = r.getBoolean("noConsume", false);
                 if (inSec != null) {
-                    for (int i = 0; i < input.length; i++) {
-                        ConfigurationSection is = inSec.getConfigurationSection(String.valueOf(i + 1));
-                        noConsume[i] = noConsumeAll || (is != null && is.getBoolean("noConsume", false));
+                    for (String k : inSec.getKeys(false)) {
+                        ConfigurationSection is = inSec.getConfigurationSection(k);
+                        if (is == null) continue;
+                        ItemStack it = Read.item(is, true);
+                        if (it == null) continue;
+                        inList.add(it);
+                        inSlotList.add(is.getInt("slot", -1));
+                        ncList.add(noConsumeAll || is.getBoolean("noConsume", false));
                     }
                 }
+                ItemStack[] input = inList.toArray(new ItemStack[0]);
+                int[] inSlots = inSlotList.stream().mapToInt(Integer::intValue).toArray();
+                boolean[] noConsume = new boolean[ncList.size()];
+                for (int i = 0; i < ncList.size(); i++) noConsume[i] = ncList.get(i);
+
                 List<ItemStack> outs = new ArrayList<>();
                 List<Integer> chances = new ArrayList<>();
+                List<Integer> outSlotList = new ArrayList<>();
                 ConfigurationSection outSec = r.getConfigurationSection("output");
                 if (outSec != null) {
                     for (String k : outSec.getKeys(false)) {
@@ -92,11 +102,13 @@ public final class RecipeMachineLoader {
                         if (it == null) continue;
                         outs.add(it);
                         chances.add(o.getInt("chance", 100));
+                        outSlotList.add(o.getInt("slot", -1));
                     }
                 }
+                int[] outSlots = outSlotList.stream().mapToInt(Integer::intValue).toArray();
                 boolean chooseOne = r.getBoolean("chooseOne", false);
                 int[] ch = chances.stream().mapToInt(Integer::intValue).toArray();
-                out.add(new WTRecipe(seconds, input, outs.toArray(new ItemStack[0]), ch, chooseOne, noConsume));
+                out.add(new WTRecipe(seconds, input, outs.toArray(new ItemStack[0]), ch, chooseOne, noConsume, inSlots, outSlots));
             } catch (Exception e) {
                 WT.log("配方 " + name + " 解析失败: " + e);
             }

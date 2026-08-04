@@ -62,8 +62,6 @@ public class WTWorkbench extends WTRecipeMachine {
         MachineRecipe next = findNextRecipe(menu);
         if (!(next instanceof WTRecipe)) return;
         WTRecipe r = (WTRecipe) next;
-        for (ItemStack o : r.rollOutput()) {
-            if (o != null) menu.pushItem(o.clone(), getOutputSlots());
-        }
+        r.pushOutputs(menu, getOutputSlots());
     }
 }

@@ -15,33 +15,52 @@ public class WTRecipe extends MachineRecipe {
     private final int[] chances;
     private final boolean chooseOne;
     private final boolean[] noConsume;
+    /** 每个输入绑定的菜单槽（-1=任意输入槽），用于 linked 机器。 */
+    private final int[] inSlots;
+    /** 每个输出绑定的菜单槽（-1=任意输出槽），用于 linked 机器。 */
+    private final int[] outSlots;
 
     public WTRecipe(int seconds, ItemStack[] input, ItemStack[] output, int[] chances, boolean chooseOne, boolean[] noConsume) {
+        this(seconds, input, output, chances, chooseOne, noConsume, new int[0], new int[0]);
+    }
+
+    public WTRecipe(int seconds, ItemStack[] input, ItemStack[] output, int[] chances, boolean chooseOne,
+                    boolean[] noConsume, int[] inSlots, int[] outSlots) {
         super(seconds, input, output);
         this.chances = chances;
         this.chooseOne = chooseOne;
         this.noConsume = noConsume;
+        this.inSlots = inSlots;
+        this.outSlots = outSlots;
+    }
+
+    public int inSlot(int i) {
+        return (inSlots != null && i < inSlots.length) ? inSlots[i] : -1;
     }
 
     public boolean isNoConsume(int index) {
         return index >= 0 && index < noConsume.length && noConsume[index];
     }
 
-    /** 完成时滚动产出：每个输出独立过 chance；若 chooseOne 则在通过项中再均匀择一。 */
-    public List<ItemStack> rollOutput() {
+    /** 完成时滚动产出并把每个通过项推入其绑定槽（无绑定则推入 freeSlots）。 */
+    public void pushOutputs(me.mrCookieSlime.Slimefun.api.inventory.BlockMenu inv, int[] freeSlots) {
         ItemStack[] base = getOutput();
-        List<ItemStack> passed = new ArrayList<>();
+        List<Integer> passed = new ArrayList<>();
         for (int i = 0; i < base.length; i++) {
             int ch = i < chances.length ? chances[i] : 100;
-            if (ch >= 100 || (ch > 0 && ThreadLocalRandom.current().nextInt(100) < ch)) {
-                passed.add(base[i]);
-            }
+            if (ch >= 100 || (ch > 0 && ThreadLocalRandom.current().nextInt(100) < ch)) passed.add(i);
         }
         if (chooseOne && !passed.isEmpty()) {
-            ItemStack picked = passed.get(ThreadLocalRandom.current().nextInt(passed.size()));
+            int pick = passed.get(ThreadLocalRandom.current().nextInt(passed.size()));
             passed.clear();
-            passed.add(picked);
+            passed.add(pick);
         }
-        return passed;
+        for (int i : passed) {
+            ItemStack o = base[i];
+            if (o == null) continue;
+            int slot = (outSlots != null && i < outSlots.length) ? outSlots[i] : -1;
+            if (slot >= 0) inv.pushItem(o.clone(), slot);
+            else inv.pushItem(o.clone(), freeSlots);
+        }
     }
 }

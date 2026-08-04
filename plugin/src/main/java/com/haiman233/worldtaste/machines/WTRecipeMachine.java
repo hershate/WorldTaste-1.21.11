@@ -150,9 +150,7 @@ public class WTRecipeMachine extends AContainer implements RecipeDisplayItem {
         }
         WTRecipe r = active.remove(b.getLocation());
         if (r != null) {
-            for (ItemStack o : r.rollOutput()) {
-                if (o != null) inv.pushItem(o.clone(), outputSlots);
-            }
+            r.pushOutputs(inv, outputSlots);
         }
         inv.replaceExistingItem(pslot, progressBar);
         getMachineProcessor().endOperation(b);

@@ -1333,3 +1333,23 @@
     - {"id": "WT_JUDUGUO", "chance": 1.0}
     - {"id": "WT_SEED_JUDUGUO", "chance": 1.0}
   "cropId": "WT_SEED_JUDUGUO"
+"seed/new/diaolinggua":
+  "material": "MELON_STEM"
+  "maxAge": 6
+  "growMs": 120000
+  "stages": "small"
+  "weightedDrops":
+    - {"id": "WT_DIAOLINGGUA", "weight": 0.7}
+    - {"id": "WT_EMOGUA", "weight": 0.3}
+    - {"id": "WT_SEED_DIAOLINGGUA", "weight": 0.4}
+  "cropId": "WT_SEED_DIAOLINGGUA"
+"seed/shengcai":
+  "material": "TORCHFLOWER_CROP"
+  "maxAge": 1
+  "growMs": 120000
+  "stages": "small"
+  "weightedDrops":
+    - {"id": "WT_JIEQIUSHENGCAI", "weight": 0.9}
+    - {"id": "WT_XINGYUNZSDK", "weight": 0.08}
+    - {"id": "WT_SEED_SHENGCAI", "weight": 0.4}
+  "cropId": "WT_SEED_SHENGCAI"

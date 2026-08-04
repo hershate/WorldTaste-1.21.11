@@ -64,6 +64,13 @@ public class ConsumableItem extends SimpleSlimefunItem<ItemUseHandler> implement
             if (opts.saturationSet != null) p.setSaturation(opts.saturationSet);
             else if (opts.saturation != null) p.setSaturation((float) (p.getSaturation() + opts.saturation));
             if (opts.exhaustion != null) p.setExhaustion((float) (p.getExhaustion() - opts.exhaustion));
+            if (opts.exhaustionSet != null) p.setExhaustion(opts.exhaustionSet.floatValue());
+            if (opts.absorption != null) p.setAbsorptionAmount(opts.absorption);
+            if (opts.remainingAirAdd != null) p.setRemainingAir(p.getRemainingAir() + opts.remainingAirAdd);
+            if (opts.gameMode != null) {
+                try { p.setGameMode(org.bukkit.GameMode.valueOf(opts.gameMode.toUpperCase(java.util.Locale.ROOT))); }
+                catch (IllegalArgumentException ignored) {}
+            }
             if (opts.satRegen != null) p.setSaturatedRegenRate(opts.satRegen);
             if (opts.unsatRegen != null) p.setUnsaturatedRegenRate(opts.unsatRegen);
             if (opts.starvation != null) p.setStarvationRate(opts.starvation);

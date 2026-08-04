@@ -7,7 +7,7 @@
 
 原 WorldTaste 的内容全部在 YAML，行为在 JS 脚本（靠 RSC 的 GraalVM 引擎 eval）。改写为独立插件后：
 - **内容 YAML 原样保留**（仍由插件在启动期读取），只是读取器从 RSC 的 Reader 换成插件自带的精简 loader。
-- **JS 脚本逻辑全部以原生 Java 实现**；脚本的“参数”（食物数值、作物配置、钓鱼掉落表）由构建期生成器 [scripts/lib/gen_standalone.py](../scripts/lib/gen_standalone.py) 抽取到 `data/*.yml`，运行期由 Java 读取。
+- **JS 脚本逻辑全部以原生 Java 实现**；其“参数”（食物数值、作物配置、钓鱼掉落表）记录在 `plugin/src/main/resources/data/*.yml`，**手工维护**（不再使用任何转换脚本），运行期由 Java 读取。
 - 结果是单个 `WorldTaste-1.8.2-standalone.jar`，**不再依赖 RykenSlimefunCustomizer**，放入 `plugins/` 即可（仍需 Slimefun + 美食家 + 异域花园）。
 
 ## 构建与依赖
@@ -48,7 +48,7 @@ groups → recipe_types → 预加载展示物品 → Behaviors.loadData
 | `diaoyu.js` + `lib/wt_fishing.js` | `FishingListener`（PlayerFishEvent，读 `data/fishing.yml`） | 百味钓竿 + 5 鱼饵 + 133 掉落 |
 | `mob_drops.yml` | `MobDropListener`（EntityDeathEvent） | 106 种食材掉落 |
 
-`gen_standalone.py` 把“标准结构”脚本的数据抽到 `data/*.yml`；无法解析的少数独立脚本回退为普通物品（见下「已知差距」）。
+`data/*.yml` 为**手工维护**的行为参数数据（原转换器已弃用）；少数无法对应标准行为的独立脚本回退为普通物品（见下「已知差距」）。
 
 ## 已知差距（后续可补）
 

@@ -132,6 +132,7 @@
   "kind": "use"
   "foodSet": 0
   "saturationSet": 0
+  "exhaustionSet": 4
   "potions":
     - {"type": "HUNGER", "duration": 10000, "amplifier": 254}
 "bingmianbao":
@@ -176,6 +177,9 @@
   "maxAir": 300
   "message": "恢复完成！"
   "kind": "use"
+"jianya":
+  "kind": "use"
+  "exhaustionSet": 0
 "jiu":
   "kind": "use"
   "randomFood": 12
@@ -184,17 +188,26 @@
     - {"type": "NAUSEA", "duration": 1000, "amplifier": 1}
     - {"type": "ABSORPTION", "duration": 1200, "amplifier": 2}
   "requireHungry": true
+"kangxing":
+  "kind": "use"
+  "absorption": 45
 "liaolidabian":
   "food": 7
   "saturation": 7
   "exhaustion": 0.7
   "requireHungry": true
   "kind": "use"
+"maoxian":
+  "kind": "use"
+  "gameMode": "ADVENTURE"
 "rou":
   "kind": "eat"
   "food": 1
   "saturation": 2
   "exhaustion": 1
+"shengcun":
+  "kind": "use"
+  "gameMode": "SURVIVAL"
 "tang_1":
   "kind": "use"
   "food": 2
@@ -258,6 +271,9 @@
   "kind": "use"
   "remainingAir": 8000
   "maxAir": 8000
+"yangqiguan":
+  "kind": "use"
+  "remainingAirAdd": 300
 "yl1":
   "kind": "use"
   "food": 2

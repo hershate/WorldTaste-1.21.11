@@ -49,6 +49,10 @@ public final class Behaviors {
             if (s.isSet("food")) o.food = s.getDouble("food");
             if (s.isSet("saturation")) o.saturation = s.getDouble("saturation");
             if (s.isSet("exhaustion")) o.exhaustion = s.getDouble("exhaustion");
+            if (s.isSet("exhaustionSet")) o.exhaustionSet = s.getDouble("exhaustionSet");
+            if (s.isSet("absorption")) o.absorption = s.getDouble("absorption");
+            o.gameMode = s.getString("gameMode");
+            if (s.isSet("remainingAirAdd")) o.remainingAirAdd = s.getInt("remainingAirAdd");
             if (s.isSet("foodSet")) o.foodSet = s.getInt("foodSet");
             if (s.isSet("saturationSet")) o.saturationSet = (float) s.getDouble("saturationSet");
             o.requireHungry = s.getBoolean("requireHungry", false);
@@ -109,6 +113,10 @@ public final class Behaviors {
         public Double food;
         public Double saturation;
         public Double exhaustion;
+        public Double exhaustionSet;
+        public Double absorption;
+        public String gameMode;
+        public Integer remainingAirAdd;
         public Integer foodSet;
         public Float saturationSet;
         public boolean requireHungry;

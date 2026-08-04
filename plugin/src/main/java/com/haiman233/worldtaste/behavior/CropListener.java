@@ -18,6 +18,9 @@ public final class CropListener implements Listener {
     public void onBreak(BlockBreakEvent e) {
         SlimefunItem sf = BlockStorage.check(e.getBlock());
         if (sf instanceof CropBlock crop) {
+            // 禁用原版掉落：getDrops() 为空时框架不会 setDropItems(false)，
+            // 而作物方块已被 tick 转成 WHEAT 等原版材质，否则会额外掉原版作物/种子
+            e.setDropItems(false);
             crop.onBreak(e.getBlock());
         }
     }

@@ -65,15 +65,17 @@ public final class FishingListener implements Listener {
         List<Drop> drops = baits.get(bait.getId());
         if (drops == null) return;
 
+        // 先选并解析掉落物；无法解析（如未装对应附属）时不取消事件、不扣饵、保留原渔获
+        Drop d = select(drops);
+        if (d == null) return;
+        ItemStack stack = resolve(d.id);
+        if (stack == null) return;
+
         e.setCancelled(true);
         ItemStack off = p.getInventory().getItemInOffHand();
         if (off != null) off.setAmount(off.getAmount() - 1);
         e.getCaught().remove();
 
-        Drop d = select(drops);
-        if (d == null) return;
-        ItemStack stack = resolve(d.id);
-        if (stack == null) return;
         stack.setAmount(1);
         Item ent = e.getHook().getWorld().dropItem(e.getHook().getLocation(), stack);
         ent.setPickupDelay(2);

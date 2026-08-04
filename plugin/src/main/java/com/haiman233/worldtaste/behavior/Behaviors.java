@@ -78,7 +78,7 @@ public final class Behaviors {
             o.message = s.getString("message");
             consumables.put(name, o);
         }
-        WT.plugin.getLogger().info("行为数据: consumables=" + consumables.size() + ", crops=" + 0);
+        WT.plugin.getLogger().info("行为数据: consumables=" + consumables.size());
     }
 
     private static void loadCrops() {

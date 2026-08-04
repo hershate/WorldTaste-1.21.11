@@ -729,7 +729,7 @@
   "growMs": 30000
   "stages": "small"
   "weightedDrops":
-    - {"id": "WT_XUETENG:", "weight": 0.5}
+    - {"id": "WT_XUETENG", "weight": 0.5}
     - {"id": "WT_NAOXINCAI", "weight": 0.4}
     - {"id": "WT_SADANGUO", "weight": 0.3}
     - {"id": "WT_SEED_XINGHONG", "weight": 0.3}

@@ -58,6 +58,23 @@ public class CropBlock extends SlimefunItem {
 
     private void tick(Block b) {
         Location l = b.getLocation();
+        Material type = b.getType();
+        boolean isSeedHead = (type == Material.PLAYER_HEAD || type == Material.PLAYER_WALL_HEAD);
+        if (type != cfg.material && !isSeedHead) {
+            // 作物已被非玩家方式移除/替换（耕地破坏、爆炸、踩踏等）：
+            // 清理状态并注销，避免幽灵 tick 把 AIR 设回作物刷原版种子
+            lastUse.remove(l);
+            grown.remove(l);
+            me.mrCookieSlime.Slimefun.api.BlockStorage.clearBlockInfo(b);
+            return;
+        }
+        if (isSeedHead) {
+            // 新放置/重放的种子：清除可能残留的成熟标记（防同位置秒熟），重新开始生长
+            grown.remove(l);
+            lastUse.put(l, System.currentTimeMillis());
+            setStage(b, 0);
+            return;
+        }
         if (grown.contains(l)) return;
         long now = System.currentTimeMillis();
         Long last = lastUse.get(l);
@@ -120,7 +137,10 @@ public class CropBlock extends SlimefunItem {
         if (sf != null) stack = sf.getItem();
         else {
             Material m = Material.matchMaterial(id);
-            if (m == null) return;
+            if (m == null) {
+                com.haiman233.worldtaste.WT.log("作物 " + getId() + " 的掉落物无法解析: " + id);
+                return;
+            }
             stack = new ItemStack(m);
         }
         b.getWorld().dropItemNaturally(b.getLocation(), stack.clone());

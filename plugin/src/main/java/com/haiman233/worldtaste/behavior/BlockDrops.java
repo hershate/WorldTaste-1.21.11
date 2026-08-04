@@ -23,9 +23,9 @@ public final class BlockDrops implements Listener {
 
     private BlockDrops() {}
 
-    public static void add(Material block, String itemId, int chance, int amount) {
+    public static void add(Material block, String itemId, int chance, int minAmount, int maxAmount) {
         if (block == null) return;
-        MAP.computeIfAbsent(block, k -> new ArrayList<>()).add(new Drop(itemId, chance, amount));
+        MAP.computeIfAbsent(block, k -> new ArrayList<>()).add(new Drop(itemId, chance, minAmount, maxAmount));
     }
 
     @EventHandler(ignoreCancelled = true)
@@ -37,7 +37,11 @@ public final class BlockDrops implements Listener {
             SlimefunItem sf = SlimefunItem.getById(d.itemId);
             if (sf == null) continue;
             ItemStack stack = sf.getItem().clone();
-            stack.setAmount(Math.max(1, d.amount));
+            // 数量区间在每次掉落时掷（而非加载期一次定值）
+            int amount = (d.maxAmount > d.minAmount)
+                    ? ThreadLocalRandom.current().nextInt(d.minAmount, d.maxAmount + 1)
+                    : d.minAmount;
+            stack.setAmount(Math.max(1, amount));
             e.getBlock().getWorld().dropItemNaturally(e.getBlock().getLocation(), stack);
         }
     }
@@ -45,9 +49,11 @@ public final class BlockDrops implements Listener {
     private static final class Drop {
         final String itemId;
         final int chance;
-        final int amount;
-        Drop(String itemId, int chance, int amount) {
-            this.itemId = itemId; this.chance = chance; this.amount = amount;
+        final int minAmount;
+        final int maxAmount;
+        Drop(String itemId, int chance, int minAmount, int maxAmount) {
+            this.itemId = itemId; this.chance = chance;
+            this.minAmount = minAmount; this.maxAmount = maxAmount;
         }
     }
 }

@@ -10,7 +10,6 @@ import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.ThreadLocalRandom;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -98,8 +97,8 @@ public final class ItemsLoader {
         // 方块破坏掉落
         if (spec.dropFrom != null) {
             Material block = Material.matchMaterial(spec.dropFrom);
-            int amount = parseAmount(s.getString("drop_amount", "1"));
-            BlockDrops.add(block, effId, spec.dropChance, amount);
+            int[] range = parseAmountRange(s.getString("drop_amount", "1"));
+            BlockDrops.add(block, effId, spec.dropChance, range[0], range[1]);
         }
 
         String script = s.getString("script");
@@ -107,16 +106,22 @@ public final class ItemsLoader {
         return true;
     }
 
-    private static int parseAmount(String value) {
-        if (value == null) return 1;
-        int dash = value.indexOf('-');
-        if (dash > 0) {
+    /** 解析 drop_amount（支持 "1" 或 "1-3" 区间），返回 {min,max}，由 BlockDrops 每次掉落时掷。 */
+    private static int[] parseAmountRange(String value) {
+        if (value != null) {
+            int dash = value.indexOf('-');
+            if (dash > 0) {
+                try {
+                    int lo = Integer.parseInt(value.substring(0, dash).trim());
+                    int hi = Integer.parseInt(value.substring(dash + 1).trim());
+                    if (lo >= 1 && hi >= lo) return new int[]{lo, hi};
+                } catch (NumberFormatException ignored) { }
+            }
             try {
-                int lo = Integer.parseInt(value.substring(0, dash).trim());
-                int hi = Integer.parseInt(value.substring(dash + 1).trim());
-                return ThreadLocalRandom.current().nextInt(lo, hi + 1);
+                int v = Integer.parseInt(value.trim());
+                if (v >= 1) return new int[]{v, v};
             } catch (NumberFormatException ignored) { }
         }
-        try { return Integer.parseInt(value.trim()); } catch (NumberFormatException e) { return 1; }
+        return new int[]{1, 1};
     }
 }

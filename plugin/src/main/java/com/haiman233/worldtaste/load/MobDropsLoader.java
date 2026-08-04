@@ -31,7 +31,9 @@ public final class MobDropsLoader {
                 }
                 String entity = s.getString("entity");
                 int chance = s.getInt("chance", 0);
-                if (entity != null && chance > 0) drops.add(new Drop(id, entity.toUpperCase(), chance));
+                // 注册用的是 id_alias（effId），记录时也要用同一个 id，否则监听器 getById 查不到
+                String effId = s.getString("id_alias", id);
+                if (entity != null && chance > 0) drops.add(new Drop(effId, entity.toUpperCase(), chance));
                 ok++;
             } catch (Exception e) {
                 WT.log("mob_drops.yml " + id + " 注册失败: " + e);

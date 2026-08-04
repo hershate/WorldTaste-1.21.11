@@ -62,7 +62,11 @@ public final class RecipeTypes {
             case "FREEZER": return RecipeType.FREEZER;
             case "REFINERY": return RecipeType.REFINERY;
             case "GEO_MINER": return RecipeType.GEO_MINER;
+            case "ARMOR_FORGE": return RecipeType.ARMOR_FORGE;
+            case "GOLD_PAN": return RecipeType.GOLD_PAN;
+            case "HEATED_PRESSURE_CHAMBER": return RecipeType.HEATED_PRESSURE_CHAMBER;
             default:
+                WT.log("未知 recipe_type: " + name + "，回退为 NULL");
                 return RecipeType.NULL;
         }
     }

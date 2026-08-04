@@ -19,11 +19,9 @@ public final class RecipeMachineLoader {
     private RecipeMachineLoader() {}
 
     public static void load() {
-        // 电力配方机器：recipe_machines / linked_recipe_machines / workbenches 结构兼容
-        // （workbench 的 click、linked 的 slot 细节在此简化为通用自动合成）。
+        // 电力配方机器：recipe_machines / linked_recipe_machines（workbench 由 WorkbenchLoader 单独处理）
         load("recipe_machines.yml");
         load("linked_recipe_machines.yml");
-        load("workbenches.yml");
     }
 
     public static void load(String file) {

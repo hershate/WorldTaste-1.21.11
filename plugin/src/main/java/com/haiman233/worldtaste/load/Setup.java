@@ -28,6 +28,7 @@ public final class Setup {
         MobDropsLoader.load();
         MenuLoader.load();
         RecipeMachineLoader.load();
+        WorkbenchLoader.load();
         MultiBlockLoader.load();
         TemplateLoader.load();
         GeoLoader.load();

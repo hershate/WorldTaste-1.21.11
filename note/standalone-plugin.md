@@ -43,21 +43,28 @@ groups → recipe_types → 预加载展示物品 → Behaviors.loadData
 
 | 原脚本 | Java 实现 | 覆盖 |
 |---|---|---|
-| `lib/wt_food.js` + 各食物壳（编号 1~20、`tang_*`、`yl_*`、`jiu`、`yan`、`zhongdu*`、`gz*`、`rou`、`baohe`、`huifu`…） | `ConsumableItem`（读 `data/consumables.yml`） | 66 个脚本 |
-| `lib/wt_crop.js` + `seed/*`、`gandi/*`、`yurenjie/*` 作物 | `CropBlock`（BlockTicker，读 `data/crops.yml`） | 121 个作物 |
+| `lib/wt_food.js` + 各食物壳（编号 1~20、`tang_*`、`yl_*`、`jiu`、`yan`、`zhongdu*`、`gz*`、`rou`、`baohe`、`huifu`、`jianya`、`kangxing`、`maoxian`…） | `ConsumableItem`（读 `data/consumables.yml`） | 71 个脚本 |
+| `lib/wt_crop.js` + `seed/*`(含 `seed/new/*`)、`gandi/*`、`yurenjie/*` 作物 | `CropBlock`（BlockTicker，读 `data/crops.yml`） | 142 个作物 |
 | `diaoyu.js` + `lib/wt_fishing.js` | `FishingListener`（PlayerFishEvent，读 `data/fishing.yml`） | 百味钓竿 + 5 鱼饵 + 133 掉落 |
 | `mob_drops.yml` | `MobDropListener`（EntityDeathEvent） | 106 种食材掉落 |
+| `yurenjie/buyunping`、`jurenwan` 等独立脚本 | `SpecialItems`（手写 Java） | 捕云瓶 / 巨人丸 |
 
-`data/*.yml` 为**手工维护**的行为参数数据（原转换器已弃用）；少数无法对应标准行为的独立脚本回退为普通物品（见下「已知差距」）。
+> items/foods/machines 引用的 **215 个脚本已全部由 Java 实现**（消耗品 71 + 作物 142 + 钓鱼 + 2 个独立特殊物品）。
 
 ## 已知差距（后续可补）
 
-1. **foods.yml 的自定义 nutrition / onEat（gz/rou）未应用**：食物按其原版材质进食（可食用），但 `nutrition/saturation` 字段与 `gz*/rou` 的额外效果未通过 FoodComponent/事件施加。
-2. **workbench（百味万用炉）的“点击合成”简化为自动合成**：原需点击指定槽位触发，现改为有输入即自动合成（linked/template 机器同样简化为通用配方机器）。
-3. **geo_resources 未注册为真正的 GEOResource**：GEO 采掘机暂不会产出（物品仍存在）。
-4. **作物破坏掉落**：已成熟作物破坏会掉落作物/种子，但未取消原版/粘液方块本身的掉落，可能多掉一份（轻度慷慨）。
-5. **少量独立脚本（部分 gandi/yurenjie/单例）未解析**：回退为普通物品，无行为。
-6. **运行期未实机验证**：已确认编译通过并打包完整；实际加载/玩法需在装好前置的服务器中验证。
+1. **运行期未实机验证**：已确认编译通过并打包完整；实际加载/玩法需在装好前置的服务器中验证。
+2. **eat_seconds**：Paper 1.21.11 的 FoodComponent 不支持进食时长（与 RSC 29.0 一致，已忽略）。
+3. **关联机器输入槽位绑定**：输入匹配仍按“任意输入槽”（功能正常，因输入槽有限）；输出已按 `slot:` 绑定到指定槽。
+4. **作物破坏掉落**：已成熟作物破坏会掉落作物/种子，且不取消原版/粘液方块本身的掉落——这与原 RSC + wt_crop.js 行为一致（原版即如此）。
+
+## 已实现的原脚本框架功能（对照）
+
+- 物品属性：`placeable`、`color`、`id_alias`、`vanilla`、`register.conditions`、`lateInit`、`drop_from/chance/amount`、`anti_wither`、`soulbound`、`radiation`、`piglin_trade_chance`、`energy_capacity`。
+- 食物：FoodComponent(`nutrition/saturation/canAlwaysEat`) + onEat 脚本(gz/rou)。
+- 机器：电力配方机(`chance/chooseOne/noConsume`)、关联机(输出 `slot:` 绑定)、模板机(模板门槛)、工作台(点击合成)、多方块机。
+- GEO 资源：真实 GEOResource 注册(GEO 采掘机可产出)。
+- 脚本行为：215 个脚本全部 Java 实现——消耗品(含 yl/tang/jiu/yan/zhongdu 等药水/空气/冻结/打火石)、作物(142)、钓鱼、生物掉落、捕云瓶、巨人丸。
 
 ## 相关链接
 

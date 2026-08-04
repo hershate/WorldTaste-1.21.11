@@ -9,10 +9,13 @@ import io.github.thebusybiscuit.slimefun4.libraries.dough.skins.PlayerHead;
 import io.github.thebusybiscuit.slimefun4.libraries.dough.skins.PlayerSkin;
 import java.util.List;
 import java.util.regex.Pattern;
+import org.bukkit.Color;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.LeatherArmorMeta;
+import org.bukkit.inventory.meta.PotionMeta;
 
 /**
  * 共享读取器：把一个物品段（{@code material_type/material/name/lore/glow/amount}）解析为 {@link ItemStack}，
@@ -46,6 +49,8 @@ public final class Read {
             if (name != null && !name.isEmpty()) meta.setDisplayName(Colors.c(name));
             List<String> lore = s.getStringList("lore");
             if (lore != null && !lore.isEmpty()) meta.setLore(Colors.c(lore));
+            String color = s.getString("color");
+            if (color != null && !color.isEmpty()) applyColor(meta, color);
             stack.setItemMeta(meta);
         }
 
@@ -107,5 +112,21 @@ public final class Read {
             if (slot != null) out[i] = item(slot, true);
         }
         return out;
+    }
+
+    /** 应用 "R,G,B" 颜色到皮革护甲/药水等可染色 meta。 */
+    private static void applyColor(ItemMeta meta, String color) {
+        String[] rgb = color.split(",");
+        if (rgb.length != 3) return;
+        try {
+            int r = Integer.parseInt(rgb[0].trim());
+            int g = Integer.parseInt(rgb[1].trim());
+            int b = Integer.parseInt(rgb[2].trim());
+            Color c = Color.fromRGB(r, g, b);
+            if (meta instanceof LeatherArmorMeta) ((LeatherArmorMeta) meta).setColor(c);
+            else if (meta instanceof PotionMeta) ((PotionMeta) meta).setColor(c);
+        } catch (NumberFormatException ignored) {
+            WT.log("颜色格式错误: " + color);
+        }
     }
 }

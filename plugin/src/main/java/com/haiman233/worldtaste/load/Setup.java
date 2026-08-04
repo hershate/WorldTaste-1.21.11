@@ -45,7 +45,10 @@ public final class Setup {
                 ConfigurationSection itemSec = s.getConfigurationSection("item");
                 if (itemSec == null) continue;
                 ItemStack display = Read.item(itemSec, false);
-                if (display != null) WT.preload.put(id.toUpperCase(java.util.Locale.ROOT), display);
+                if (display != null) {
+                    String effId = s.getString("id_alias", id).toUpperCase(java.util.Locale.ROOT);
+                    WT.preload.put(effId, display);
+                }
             }
         }
     }

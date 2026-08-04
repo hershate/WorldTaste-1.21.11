@@ -33,6 +33,7 @@ public final class Behaviors {
         org.bukkit.Bukkit.getPluginManager().registerEvents(FishingListener.INSTANCE, WT.plugin);
         org.bukkit.Bukkit.getPluginManager().registerEvents(CropListener.INSTANCE, WT.plugin);
         org.bukkit.Bukkit.getPluginManager().registerEvents(MobDropListener.INSTANCE, WT.plugin);
+        org.bukkit.Bukkit.getPluginManager().registerEvents(BlockDrops.INSTANCE, WT.plugin);
     }
 
     private static void loadConsumables() {

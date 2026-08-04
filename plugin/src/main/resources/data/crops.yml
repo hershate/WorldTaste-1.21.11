@@ -568,6 +568,212 @@
     - {"id": "WT_LANGUA2", "weight": 0.15}
     - {"id": "WT_HONGLINANGUA", "weight": 0.52}
   "cropId": "WT_SEED_NANGUA3"
+"seed/new/binglang":
+  "material": "SWEET_BERRY_BUSH"
+  "maxAge": 3
+  "growMs": 120000
+  "stages": "small"
+  "drops":
+    - {"id": "WT_SHENGBINGLANG", "chance": 1.0}
+    - {"id": "WT_SEED_BINGLANG", "chance": 1.0}
+  "cropId": "WT_SEED_BINGLANG"
+"seed/new/diedouhua":
+  "material": "PITCHER_CROP"
+  "maxAge": 4
+  "growMs": 120000
+  "stages": "small"
+  "drops":
+    - {"id": "WT_DIEDOUHUA", "chance": 1.0}
+    - {"id": "WT_SEED_DIEDOUHUA", "chance": 1.0}
+  "cropId": "WT_SEED_DIEDOUHUA"
+"seed/new/doujia":
+  "material": "WHEAT"
+  "maxAge": 7
+  "growMs": 120000
+  "stages": "small"
+  "weightedDrops":
+    - {"id": "WT_HONGDOU", "weight": 0.5}
+    - {"id": "WT_LVDOU", "weight": 0.6}
+    - {"id": "WT_HEIDOU", "weight": 0.4}
+    - {"id": "WT_HUANGDOU", "weight": 0.5}
+    - {"id": "WT_LANDOU", "weight": 0.1}
+    - {"id": "WT_SEED_DOUJIA", "weight": 0.3}
+  "cropId": "WT_SEED_DOUJIA"
+"seed/new/feihongmoguijiao":
+  "material": "NETHER_WART"
+  "maxAge": 3
+  "growMs": 120000
+  "stages": "small"
+  "drops":
+    - {"id": "WT_FEIHONGMOGUIJIAO", "chance": 1.0}
+    - {"id": "WT_SEED_FEIHONGMOGUIJIAO", "chance": 1.0}
+  "cropId": "WT_SEED_FEIHONGMOGUIJIAO"
+"seed/new/ganhan":
+  "material": "PITCHER_CROP"
+  "maxAge": 4
+  "growMs": 120000
+  "stages": "small"
+  "weightedDrops":
+    - {"id": "WT_DUOROUZHIWU", "weight": 0.5}
+    - {"id": "WT_DWANGHUA", "weight": 0.35}
+    - {"id": "WT_HUOBANGXRZ", "weight": 0.3}
+    - {"id": "WT_BAIHUAXRZ", "weight": 0.2}
+    - {"id": "WT_YOUNIXRZ", "weight": 0.3}
+    - {"id": "WT_ZUANSHIXRZ", "weight": 0.1}
+    - {"id": "WT_TLRYXRZ", "weight": 0.15}
+    - {"id": "WT_SEED_GANHAN", "weight": 0.2}
+  "cropId": "WT_SEED_GANHAN"
+"seed/new/jiucai":
+  "material": "WHEAT"
+  "maxAge": 7
+  "growMs": 120000
+  "stages": "small"
+  "drops":
+    - {"id": "WT_JIUCAI", "chance": 1.0}
+    - {"id": "WT_SEED_JIUCAI", "chance": 1.0}
+  "cropId": "WT_SEED_JIUCAI"
+"seed/new/kugua":
+  "material": "MELON_STEM"
+  "maxAge": 6
+  "growMs": 120000
+  "stages": "small"
+  "drops":
+    - {"id": "WT_KUGUA", "chance": 1.0}
+    - {"id": "WT_SEED_KUGUA", "chance": 1.0}
+  "cropId": "WT_SEED_KUGUA"
+"seed/new/lingzhi":
+  "material": "MELON_STEM"
+  "maxAge": 6
+  "growMs": 300000
+  "stages": "small"
+  "drops":
+    - {"id": "WT_LINGZHI", "chance": 1.0}
+    - {"id": "WT_SEED_LINGZHI", "chance": 1.0}
+  "cropId": "WT_SEED_LINGZHI"
+"seed/new/qingcai":
+  "material": "WHEAT"
+  "maxAge": 7
+  "growMs": 120000
+  "stages": "small"
+  "drops":
+    - {"id": "WT_QINGCAI", "chance": 1.0}
+    - {"id": "WT_SEED_QINGCAI", "chance": 1.0}
+  "cropId": "WT_SEED_QINGCAI"
+"seed/new/qiyi":
+  "material": "CHORUS_FLOWER"
+  "maxAge": 5
+  "growMs": 30000
+  "stages": "small"
+  "weightedDrops":
+    - {"id": "WT_MOFAGUO", "weight": 0.5}
+    - {"id": "WT_MOYINGLONGGUO", "weight": 0.15}
+    - {"id": "WT_AIQINGUO", "weight": 0.2}
+    - {"id": "WT_MONENGPINGGUO", "weight": 0.4}
+    - {"id": "WT_ZHANHUAJIANGGUO", "weight": 0.35}
+    - {"id": "WT_ZISONGGUA", "weight": 0.2}
+    - {"id": "WT_SEED_QIYI", "weight": 0.32}
+  "cropId": "WT_SEED_QIYI"
+"seed/new/roudoukou":
+  "material": "POTATOES"
+  "maxAge": 7
+  "growMs": 120000
+  "stages": "small"
+  "drops":
+    - {"id": "WT_ROUDOUKOU", "chance": 1.0}
+    - {"id": "WT_SEED_ROUDOUKOU", "chance": 1.0}
+  "cropId": "WT_SEED_ROUDOUKOU"
+"seed/new/rougui":
+  "material": "WHEAT"
+  "maxAge": 7
+  "growMs": 120000
+  "stages": "small"
+  "drops":
+    - {"id": "WT_ROUGUI", "chance": 1.0}
+    - {"id": "WT_SEED_ROUGUI", "chance": 1.0}
+  "cropId": "WT_SEED_ROUGUI"
+"seed/new/shirun":
+  "material": "WHEAT"
+  "maxAge": 7
+  "growMs": 120000
+  "stages": "small"
+  "weightedDrops":
+    - {"id": "WT_XIANGPUTOU", "weight": 0.5}
+    - {"id": "WT_YUMAOLUWEICAO", "weight": 0.5}
+    - {"id": "WT_BUYINGCAO", "weight": 0.3}
+    - {"id": "WT_YUNMEI", "weight": 0.2}
+    - {"id": "WT_TIANMEI", "weight": 0.1}
+    - {"id": "WT_SEED_SHIRUN", "weight": 0.3}
+  "cropId": "WT_SEED_SHIRUN"
+"seed/new/sigua":
+  "material": "MELON_STEM"
+  "maxAge": 6
+  "growMs": 120000
+  "stages": "small"
+  "drops":
+    - {"id": "WT_SIGUA", "chance": 1.0}
+    - {"id": "WT_SEED_SIGUA", "chance": 1.0}
+  "cropId": "WT_SEED_SIGUA"
+"seed/new/tiangua":
+  "material": "MELON_STEM"
+  "maxAge": 6
+  "growMs": 120000
+  "stages": "small"
+  "drops":
+    - {"id": "WT_TIANGUA", "chance": 1.0}
+    - {"id": "WT_SEED_TIANGUA", "chance": 1.0}
+    - {"id": "WT_QIGUA", "chance": 1.0}
+  "cropId": "WT_SEED_TIANGUA"
+"seed/new/xinghong":
+  "material": "NETHER_WART"
+  "maxAge": 3
+  "growMs": 30000
+  "stages": "small"
+  "weightedDrops":
+    - {"id": "WT_XUETENG:", "weight": 0.5}
+    - {"id": "WT_NAOXINCAI", "weight": 0.4}
+    - {"id": "WT_SADANGUO", "weight": 0.3}
+    - {"id": "WT_SEED_XINGHONG", "weight": 0.3}
+  "cropId": "WT_SEED_XINGHONG"
+"seed/new/xuejiayanye":
+  "material": "WHEAT"
+  "maxAge": 7
+  "growMs": 180000
+  "stages": "small"
+  "drops":
+    - {"id": "WT_XUEJIAYANYE", "chance": 1.0}
+    - {"id": "WT_SEED_XUEJIAYANYE", "chance": 1.0}
+  "cropId": "WT_SEED_XUEJIAYANYE"
+"seed/new/yegua":
+  "material": "MELON_STEM"
+  "maxAge": 6
+  "growMs": 120000
+  "stages": "small"
+  "weightedDrops":
+    - {"id": "WT_QINGPITIANGUA", "weight": 0.6}
+    - {"id": "WT_JINSIGUA", "weight": 0.4}
+    - {"id": "WT_XINGHONGTIANGUA", "weight": 0.1}
+    - {"id": "WT_MABOGUA", "weight": 0.4}
+    - {"id": "WT_YINGGUANGLVGUA", "weight": 0.2}
+    - {"id": "WT_SEED_YEGUA", "weight": 0.3}
+  "cropId": "WT_SEED_YEGUA"
+"seed/new/yeguo":
+  "material": "SWEET_BERRY_BUSH"
+  "maxAge": 3
+  "growMs": 120000
+  "stages": "small"
+  "weightedDrops":
+    - {"id": "WT_DONGQINGGUO", "weight": 0.5}
+    - {"id": "WT_YEYINGMEI", "weight": 0.5}
+    - {"id": "WT_HEIXINGUO", "weight": 0.5}
+    - {"id": "WT_SHANZHA", "weight": 0.6}
+    - {"id": "WT_BOLUOMEI", "weight": 0.5}
+    - {"id": "WT_BAITAO", "weight": 0.5}
+    - {"id": "WT_DENGLONGGUO", "weight": 0.5}
+    - {"id": "WT_TIANSHIGUO", "weight": 0.1}
+    - {"id": "WT_KUCHENG", "weight": 0.5}
+    - {"id": "WT_SHATANGJU", "weight": 0.4}
+    - {"id": "WT_SEED_YEGUO", "weight": 0.3}
+  "cropId": "WT_SEED_YEGUO"
 "seed/pantao":
   "material": "SWEET_BERRY_BUSH"
   "maxAge": 3

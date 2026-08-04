@@ -147,12 +147,13 @@ def gen_crops():
     for sub in ["seed", "gandi", "yurenjie", "hetun"]:
         base = SCRIPTS / sub
         if not base.exists(): continue
-        for f in sorted(base.glob("*.js")):
+        for f in sorted(base.rglob("*.js")):  # 递归，含 seed/new/*
             text = f.read_text(encoding="utf-8")
             if "WT_setupCrop" not in text: continue
             parsed = parse_crop(text)
             if parsed:
-                out[f"{sub}/{f.stem}"] = parsed
+                rel = f.relative_to(SCRIPTS).with_suffix("").as_posix()
+                out[rel] = parsed
     _write_yaml(OUT / "crops.yml", out)
     print(f"crops: {len(out)}")
 

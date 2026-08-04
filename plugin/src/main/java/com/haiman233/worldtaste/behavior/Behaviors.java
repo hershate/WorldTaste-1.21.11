@@ -20,6 +20,8 @@ public final class Behaviors {
 
     public static final Map<String, ConsumableOpts> consumables = new HashMap<>();
     public static final Map<String, CropCfg> crops = new HashMap<>();
+    /** foods.yml 带 onEat 脚本(kind=eat)的食物：itemId -> opts */
+    public static final Map<String, ConsumableOpts> foodOnEat = new HashMap<>();
 
     /** 读取数据文件（须在物品注册前调用）。 */
     public static void loadData() {
@@ -34,6 +36,7 @@ public final class Behaviors {
         org.bukkit.Bukkit.getPluginManager().registerEvents(CropListener.INSTANCE, WT.plugin);
         org.bukkit.Bukkit.getPluginManager().registerEvents(MobDropListener.INSTANCE, WT.plugin);
         org.bukkit.Bukkit.getPluginManager().registerEvents(BlockDrops.INSTANCE, WT.plugin);
+        org.bukkit.Bukkit.getPluginManager().registerEvents(FoodConsumeListener.INSTANCE, WT.plugin);
     }
 
     private static void loadConsumables() {

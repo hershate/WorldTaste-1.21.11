@@ -172,7 +172,9 @@ public class WTRecipeMachine extends AContainer implements RecipeDisplayItem {
         int[] slots = inputSlots;
         int slotCount = slots.length;
         ItemStack[] slotItems = new ItemStack[slotCount];
+        java.util.Map<Integer, Integer> posOf = new java.util.HashMap<>();
         for (int s = 0; s < slotCount; s++) {
+            posOf.put(slots[s], s);
             ItemStack it = inv.getItemInSlot(slots[s]);
             slotItems[s] = (it == null) ? null : ItemStackWrapper.wrap(it);
         }
@@ -181,19 +183,33 @@ public class WTRecipeMachine extends AContainer implements RecipeDisplayItem {
             int n = inputs.length;
             int[] chosen = new int[n];
             int matched = 0;
+            boolean failed = false;
             for (int i = 0; i < n; i++) {
                 chosen[i] = -1;
                 ItemStack need = inputs[i];
                 if (need == null) { matched++; continue; }
-                for (int s = 0; s < slotCount; s++) {
-                    ItemStack in = slotItems[s];
+                int bound = recipe.inSlot(i);
+                if (bound >= 0) {
+                    // 绑定到指定槽：仅检查该槽
+                    Integer pos = posOf.get(bound);
+                    if (pos == null) { failed = true; break; }
+                    ItemStack in = slotItems[pos];
                     if (in != null && in.getAmount() >= need.getAmount() && SlimefunUtils.isItemSimilar(in, need, true)) {
-                        chosen[i] = s;
+                        chosen[i] = pos;
                         matched++;
-                        break;
+                    } else { failed = true; break; }
+                } else {
+                    for (int s = 0; s < slotCount; s++) {
+                        ItemStack in = slotItems[s];
+                        if (in != null && in.getAmount() >= need.getAmount() && SlimefunUtils.isItemSimilar(in, need, true)) {
+                            chosen[i] = s;
+                            matched++;
+                            break;
+                        }
                     }
                 }
             }
+            if (failed || matched != n) continue;
             if (matched != n) continue;
             int distinct = 0;
             for (int i = 0; i < n; i++) {

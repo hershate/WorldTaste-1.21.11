@@ -36,7 +36,9 @@ public final class FoodsLoader {
                 ItemStack display = WT.preload.get(effId.toUpperCase(java.util.Locale.ROOT));
                 if (display == null) { WT.log(effId + ": 无展示物品"); skip++; continue; }
                 display = display.clone();
-                FoodHelper.apply(display, s.getInt("nutrition", 0), (float) s.getDouble("saturation", 0), s.getBoolean("always_eatable", false));
+                float eatSeconds = (float) s.getDouble("eatseconds", s.getDouble("eat_seconds", 0));
+                FoodHelper.apply(display, s.getInt("nutrition", 0), (float) s.getDouble("saturation", 0),
+                        s.getBoolean("always_eatable", false), eatSeconds);
 
                 SlimefunItemStack sfis = new SlimefunItemStack(effId, display);
                 RecipeType rt = RecipeTypes.resolve(s.getString("recipe_type", "NULL"));

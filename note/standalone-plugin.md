@@ -53,16 +53,14 @@ groups → recipe_types → 预加载展示物品 → Behaviors.loadData
 
 ## 已知差距（后续可补）
 
-1. **运行期未实机验证**：已确认编译通过并打包完整；实际加载/玩法需在装好前置的服务器中验证。
-2. **eat_seconds**：Paper 1.21.11 的 FoodComponent 不支持进食时长（与 RSC 29.0 一致，已忽略）。
-3. **关联机器输入槽位绑定**：输入匹配仍按“任意输入槽”（功能正常，因输入槽有限）；输出已按 `slot:` 绑定到指定槽。
-4. **作物破坏掉落**：已成熟作物破坏会掉落作物/种子，且不取消原版/粘液方块本身的掉落——这与原 RSC + wt_crop.js 行为一致（原版即如此）。
+1. **完整实机运行验证**：已确认编译通过、打包完整，且全部 16 个 YAML(13 内容 + 3 行为数据)经解析校验合法；但未在真实 MC 服务器中实机加载验证（本环境无法运行服务端），需在装好前置的服务器实测一次。
+2. **作物破坏掉落**：已成熟作物破坏会掉落作物/种子，且不取消原版/粘液方块本身的掉落——这与原 RSC + wt_crop.js 行为一致（原版即如此）。
 
 ## 已实现的原脚本框架功能（对照）
 
 - 物品属性：`placeable`、`color`、`id_alias`、`vanilla`、`register.conditions`、`lateInit`、`drop_from/chance/amount`、`anti_wither`、`soulbound`、`radiation`、`piglin_trade_chance`、`energy_capacity`。
-- 食物：FoodComponent(`nutrition/saturation/canAlwaysEat`) + onEat 脚本(gz/rou)。
-- 机器：电力配方机(`chance/chooseOne/noConsume`)、关联机(输出 `slot:` 绑定)、模板机(模板门槛)、工作台(点击合成)、多方块机。
+- 食物：FoodComponent(`nutrition/saturation/canAlwaysEat`) + `eat_seconds`(反射, Paper 1.21.6+) + onEat 脚本(gz/rou)。
+- 机器：电力配方机(`chance/chooseOne/noConsume`)、关联机(**输入/输出均按 `slot:` 绑定**)、模板机(模板门槛)、工作台(点击合成)、多方块机。
 - GEO 资源：真实 GEOResource 注册(GEO 采掘机可产出)。
 - 脚本行为：215 个脚本全部 Java 实现——消耗品(含 yl/tang/jiu/yan/zhongdu 等药水/空气/冻结/打火石)、作物(142)、钓鱼、生物掉落、捕云瓶、巨人丸。
 

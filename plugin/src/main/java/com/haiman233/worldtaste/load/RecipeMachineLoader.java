@@ -127,13 +127,4 @@ public final class RecipeMachineLoader {
         for (int i = 0; i < list.size(); i++) out[i] = list.get(i);
         return out;
     }
-
-    private static ItemStack[] compact(ItemStack[] arr) {
-        int n = 0;
-        for (ItemStack i : arr) if (i != null) n++;
-        ItemStack[] out = new ItemStack[n];
-        int idx = 0;
-        for (ItemStack i : arr) if (i != null) out[idx++] = i;
-        return out;
-    }
 }

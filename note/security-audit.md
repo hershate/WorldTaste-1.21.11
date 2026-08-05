@@ -395,3 +395,19 @@
 
 ### 阶段性结论
 代码层、数据派发层、加载编排、注册门控、构建打包均已逐项核验，静态审查**全面饱和**。累计 **18 处修复**全部纳入通过编译的 jar。后续静态轮次预期仅产出验证结论；真正剩余工作为**实机加载/运行验证**（需真实 Paper 1.21.11 + Slimefun4.1 + 美食家/异域花园服务端）。
+
+## 第 20 轮（2026-08-05）：全文件覆盖收尾（Colors/Yaml/GeoLoader/WTGeoResource — 验证轮）
+
+> 本轮读取并核查此前未直接读过的最后几个文件，**至此已直接读取并核查全部 ~40 个 Java 文件，实现全文件覆盖**。
+
+### 复查确认（本轮无问题项）
+- **[Colors.java](../plugin/src/main/java/com/haiman233/worldtaste/util/Colors.java)**：null 安全；双 hex 写法(`{#RRGGBB}`/`&#RRGGBB`)+`&` 码；`toBukkitHex` 产出 `§x§r§r§g§g§b§b` 正确；替换串无 `$`/`\` 转义问题。
+- **[Yaml.java](../plugin/src/main/java/com/haiman233/worldtaste/load/Yaml.java)**：try-with-resources(InputStream+Reader) + 资源缺失/IO 异常均返回空配置 + UTF-8，不崩启动。
+- **[GeoLoader.java](../plugin/src/main/java/com/haiman233/worldtaste/load/GeoLoader.java)**：逐条 try/catch；`supply==null` 安全；GEO 无 id_alias（effId==id，preload 查表正确）；Slimefun 物品注册表与 GEO 注册表分离无冲突。
+- **[WTGeoResource.java](../plugin/src/main/java/com/haiman233/worldtaste/items/WTGeoResource.java)**：GEOResource 数据持有，getDefaultSupply 按 Environment 分发。
+
+### 静态审查最终声明（r1–r20，闭环）
+- **全文件直接覆盖**：~40 Java 文件 + 行为数据(consumables/crops/fishing) + 内容解析 + 机器 Loader + 派发/注册/构建打包。
+- **累计 18 处修复**，全部经 `./gradlew build` 验证编译并打入 jar。
+- 静态层面**无已知遗留代码缺陷**。剩余工作明确为**实机验证**，已整理为 [server-verification-checklist.md](server-verification-checklist.md)（含 r17 食物可食性重点验证、复制漏洞回归、级联隔离、高负载稳定性、对抗修改版客户端等）。
+- 建议审查循环**到此停止**（后续静态轮次无预期产出），转入实机验证阶段。

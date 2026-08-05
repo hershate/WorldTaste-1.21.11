@@ -658,3 +658,15 @@
 
 ### 阶段状态
 累计 **22 bug 修复 + 1 死状态清理 + 37 轮核查**，版本 `1.8.3-standalone`。功能组合/复合逻辑经配方内/跨系统/属性三层系统核查，无复合缺陷。
+
+## 第 38 轮（2026-08-05）：代码标记/网络材质/内存泄漏核查（验证轮）
+
+> 扫描代码遗留标记、加载期网络请求风险、运行期内存泄漏（长稳诉求）。**验证轮：无缺陷、无代码改动**。
+
+### 复查确认（本轮无问题项——附证据）
+- **无 TODO/FIXME/XXX/HACK 标记**：全 plugin 源码 grep 0 命中 → 无未完成/已知问题代码区。
+- **无 http(s) 材质**：内容文件 0 命中 `material: http...` → preloadDisplays 期无 `PlayerSkin.fromURL` 网络请求（全部头颅用 skull_hash/skull_base64，启动无网络延迟、无外部 URL 依赖，亦无 fromURL 失败风险）。
+- **无运行期内存泄漏**：CropBlock 的 lastUse/grown 在作物移除时清理（tick 检测方块替换 clearBlockInfo+remove / onBreak remove）；WTRecipeMachine.active 在机器破坏时 remove（onBlockBreak）；运行期注册表（Behaviors.*/BlockDrops.MAP/MobDropsLoader.drops/FishingListener.baits）均为启动期填充、运行期只读，无无界增长。无 EventListener 残留 Player 引用。
+
+### 阶段状态
+累计 **22 bug 修复 + 1 死状态清理 + 38 轮核查**，版本 `1.8.3-standalone`。代码遗留标记、加载期网络、运行期内存三个长稳维度均清洁。

@@ -644,3 +644,17 @@
 
 ### 阶段状态
 累计 **22 bug 修复 + 1 死状态清理 + 36 轮核查**，版本 `1.8.3-standalone`。功能组合/复合逻辑维度经系统核查无复合缺陷。
+
+## 第 37 轮（2026-08-05）：chooseOne×输出顺序×chance 复合核查（验证轮）
+
+> 续「功能组合」深核：chooseOne(首个幸存者,r26) × 输出顺序 × chance 的复合 —— 若首个输出 chance≥100 则恒通过、挡死后序输出。**验证轮：无缺陷、无代码改动**（且即使存在亦忠实 RSC，不擅改）。
+
+### 复查确认（本轮无问题项——附证据）
+- **Python(PyYAML) 扫描全部 chooseOne 配方**（recipe/linked/template/workbenches）：检查「首个输出 chance≥100 且 >1 输出 → 后序永不产出」。结果 **CLEAN：无此配方** —— 所有 chooseOne 配方首输出 chance<100（可失败让后序产出）或为单输出。无「死输出」复合问题。
+- **功能组合复合维度已系统覆盖**（r36+r37 汇总）：
+  - 配方内：chooseOne×noConsume（1 处，输入/输出侧独立=正确）、chooseOne×moreOutput（不现）、input-output 自引用（无）、chooseOne 首输出挡死（无）。
+  - 跨系统：drop_from×粘液方块（r12 修）、bonemeal×作物（时间判成熟，一致）。
+  - 物品属性：r13 证无物品有 ≥2 个分派属性；非分派属性（drop_from/vanilla）与分派属性（soulbound/radiation 等）独立共存（如 soulbound+drop_from 两效果均生效）。
+
+### 阶段状态
+累计 **22 bug 修复 + 1 死状态清理 + 37 轮核查**，版本 `1.8.3-standalone`。功能组合/复合逻辑经配方内/跨系统/属性三层系统核查，无复合缺陷。

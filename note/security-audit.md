@@ -195,3 +195,15 @@
 - **代码层**：~40 Java 文件逐文件覆盖，修复 14 处（含钓鱼复制漏洞、5 处幽灵物品消耗、loadCrops 级联、机器槽位越界、工作台能量顺序、性能优化等）。
 - **数据层**：consumables(仅 xuejia 因代码模型缺口已修，余忠实)、fishing、crops 三类行为数据均经原脚本核对**忠实复刻**。
 - 审查已覆盖**代码 + 行为数据**双层面。剩余仅为：实机加载验证（需服务端）、2 个未定义内容 id（作者补）、items.yml 配方内容（纯作者数据）。
+
+## 第 10 轮（2026-08-05）：打包完整性验证
+
+**范围**：执行完整 `./gradlew jar`（此前仅跑 compileJava），核查产物 jar 是否包含全部所需资源、是否拾取了源码改动。
+
+### 复查确认（无问题项）
+- **构建**：`./gradlew jar` BUILD SUCCESSFUL（compileJava/processResources/jar 全过）。
+- **资源清单完整**：`WorldTaste-1.8.2-standalone.jar` 内含 **13 个内容 YAML**（foods/geo_resources/groups/items/linked_recipe_machines/machines/mb_machines/menus/mob_drops/recipe_machines/recipe_types/template_machines/workbenches）+ `plugin.yml` + `data/{consumables,crops,fishing}.yml`，与各 loader 引用清单**完全匹配，无缺失**（任一缺失会致 `Yaml.loadResource` 返回空、内容静默丢失）。
+- **打包拾取源码改动**：jar 内 `data/consumables.yml` 含 r8 的 `xuejia: offhandTool SHEARS` 与 `yan: offhandTool FLINT_AND_STEEL`、无残留 `offhandFlint`——processResources 正确追踪 src 编辑。
+
+### 审查闭环声明（r1–r10）
+静态审查已**全面完成并闭环**，覆盖：代码（~40 文件，14 处修复）、行为数据（consumables/fishing/crops 忠实）、打包（完整、拾取改动）。后续静态轮次不再有预期产出；剩余工作明确为**实机加载验证**（需真实 MC 服务端，本环境不可行）与**内容作者补全**（2 个未定义 id、items.yml 配方数据）。

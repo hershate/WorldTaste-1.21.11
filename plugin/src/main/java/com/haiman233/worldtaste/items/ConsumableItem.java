@@ -3,6 +3,7 @@ package com.haiman233.worldtaste.items;
 import com.haiman233.worldtaste.WT;
 import com.haiman233.worldtaste.behavior.Behaviors.ConsumableOpts;
 import com.haiman233.worldtaste.behavior.Behaviors.Potion;
+import com.haiman233.worldtaste.util.Stacks;
 import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
@@ -52,9 +53,12 @@ public class ConsumableItem extends SimpleSlimefunItem<ItemUseHandler> implement
 
             ItemStack main = inv.getItemInMainHand();
             if (main == null || main.getAmount() <= 0) return;
-            main.setAmount(main.getAmount() - 1);
-            if (opts.offhandFlint && opts.consumeOffhand && off != null) {
-                off.setAmount(off.getAmount() - 1);
+            // 到 0 必须清空主手槽位，避免 0 数量幽灵物品残留（否则下次右键仍被识别/显示）
+            Stacks.consumeOneInMainHand(inv);
+            if (opts.offhandFlint && opts.consumeOffhand) {
+                // 打火石为整件消耗（对齐原 yan.js 的 setAmount-1）：到 0 必须清空副手，
+                // 否则 0 数量打火石仍能通过 getType()==FLINT_AND_STEEL 校验，一根可无限点烟。
+                Stacks.consumeOneInOffHand(inv);
             }
 
             int food = opts.randomFood != null ? (ThreadLocalRandom.current().nextInt(opts.randomFood) + 1)

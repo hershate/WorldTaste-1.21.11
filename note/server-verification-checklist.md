@@ -10,10 +10,11 @@
 - [ ] 无「资源缺失」警告（13 内容 YAML + data/*.yml 均应加载）。
 - [ ] 加载耗时合理（info.yml 称 1~3 分钟）。
 
-## 1. r17 关键修复：168 饮品可食性 ⚠️ 重点
-- [ ] 取一个饮品（如 `WT_JIANGZHI` 姜汁，script=gz2），右键**可正常进食**（进食动画+消耗 1 个）。
-- [ ] 进食后饥饿/饱和按 gz2(food=6/saturation=6) 恢复。
-- [ ] **若不可食**（0 营养 FoodComponent 在当前 Paper 不被认可）：回退为「默认营养 1」方案（FoodHelper 中 `nutrition<=0` 时 nutrition 设 1 而非 0）。
+## 1. r17/r24 关键修复：168 饮品可食性 ⚠️ 重点
+> r24 已对齐 RSC `FoodReader` 规范（nutrition<1→1），饮品 nutrition 恒≥1、**可食性已无「0 营养」不确定性**。
+- [ ] 取一个饮品（如 `WT_JIANGZHI` 姜汁，script=gz2），饥饿时右键**可正常进食**（进食动画+消耗 1 个）。
+- [ ] 进食后饥饿/饱和恢复 ≈ 1(vanilla)+6(gz2 脚本)（对齐 RSC：脚本在 vanilla 基础上追加）。
+- [ ] 验证 `CraftFoodComponent` 反射成功（启动日志无「FoodComponent 应用失败」severe；与 RSC 同类名，应可用）。
 - [ ] 对照：烤肉（`WT_KAOMAOROU` 等，script=rou，nutrition=5）仍正常可食、恢复正常。
 
 ## 2. 数据操作 / 复制漏洞回归（r1–r12 修复）

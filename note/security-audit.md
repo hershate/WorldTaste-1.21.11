@@ -453,3 +453,21 @@
 
 ### 阶段状态
 累计 **19 处修复 + 23 轮核查**。
+
+## 第 24 轮（2026-08-05）：核对 RSC 源码保真度 —— FoodHelper 对齐 RSC FoodReader
+
+> 本轮把端口实现与 **RSC 原版源码**（[FoodReader.java](../REF/RykenSlimeCustomizer-1.21.11/src/main/java/org/lins/mmmjjkx/rykenslimefuncustomizer/objects/yaml/item/FoodReader.java)，同 Paper 1.21.11 编译路径）逐行对照，发现 r17 的食物可食性方案偏离 RSC 规范并已纠正。
+
+### 已修复（保真度纠正）
+
+| # | 严重度 | 位置 | 缺陷 | 后果 | 修复 / commit |
+|---|---|---|---|---|---|
+| 20 | 🟠 保真度 | `FoodHelper.apply` | r17 用「nutrition=0+canAlwaysEat=true」使饮品可食，但**偏离 RSC**（RSC FoodReader:76-79 对 nutrition<1 提升为 1、canAlwaysEat 取食物 always_eatable 默认 false），且引入「0 营养是否可食」不确定性 | 行为与原版不一致（饮品可食时机/恢复值偏差）；r17 实机验证存不确定 | 精确对齐 RSC：nutrition<1→1、saturation<0→0、canAlwaysEat 取 always_eatable；反射类名同 RSC（经 RSC 证实有效）。**营养恒≥1，消除可食性不确定性** — `38f5298` |
+
+### 复查确认（本轮无问题项——附证据）
+- **反射类名有效**：RSC FoodReader:100 与端口 FoodHelper 用**完全相同**的 `org.bukkit.craftbukkit.inventory.components.CraftFoodComponent`（+ 相同 eatSeconds 注释），RSC 为 Paper 1.21.11 规范实现 → 端口反射路径可靠，**解除 r17/r19 的「FoodComponent 反射是否成功」顾虑**。
+- **RSC 对 nutrition/saturation/eatseconds 的边界处理**（<1→1 / <0→0 / <0→1.6）现已在端口对齐（eatSeconds 端口用 NoSuchMethod 忽略，等价）。
+- 实机验证清单第 1 节已更新：饮品可食性不再有「0 营养」不确定项，仅需验证反射成功 + onEat 恢复值。
+
+### 阶段状态
+累计 **20 处修复 + 24 轮核查**。本轮表明「与 RSC 原版源码逐行对照」是高价值的保真度核验手段——后续可继续对照其它共享逻辑（如 readItem/readRecipe/multiblock）查证端口保真度。

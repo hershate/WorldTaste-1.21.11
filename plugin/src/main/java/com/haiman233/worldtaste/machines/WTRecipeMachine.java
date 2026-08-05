@@ -197,6 +197,13 @@ public class WTRecipeMachine extends AContainer implements RecipeDisplayItem {
             ItemStack it = inv.getItemInSlot(slots[s]);
             slotItems[s] = (it == null) ? null : ItemStackWrapper.wrap(it);
         }
+        // 所有输入槽为空时不可能命中任何配方（注册配方至少含 1 个非空输入）：
+        // 直接返回，避免空闲机器每 tick 白遍历全部配方（含昂贵的 isItemSimilar，高负载下显著省 TPS）。
+        boolean anyInput = false;
+        for (ItemStack si : slotItems) {
+            if (si != null) { anyInput = true; break; }
+        }
+        if (!anyInput) return null;
         for (WTRecipe recipe : recipeList) {
             ItemStack[] inputs = recipe.getInput();
             int n = inputs.length;

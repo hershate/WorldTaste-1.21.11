@@ -236,3 +236,27 @@
 - **巨人丸 `spawnEntity` 绕过领地保护**（r2 todo）：评估接入 `Slimefun.getProtectionManager()` 校验后再生成 GIANT。
 - **`Read.java` 内容解析信任边界**：undefined id 回退 STONE、recipe/数量解析边界的专门核查（下一轮）。
 - **高负载机器配方匹配性能**：空闲早返回已加（r5）；超大配方表机器的 O(配方×槽位)/tick 实测评估（需实机）。
+
+## 第 12 轮（2026-08-05）：内容解析信任边界 + 跨文件数据一致性（drop_from 双重掉落）
+
+> 本轮聚焦「YAML 内容 → 运行时物品」的解析信任边界（[Read.java](../plugin/src/main/java/com/haiman233/worldtaste/load/Read.java)、[ItemsLoader](../plugin/src/main/java/com/haiman233/worldtaste/load/ItemsLoader.java) 的 drop_from/script/id_alias）与跨文件材质一致性，发现并修复一处真实**双重掉落**。
+
+### 已修复
+
+| # | 严重度 | 位置 | 缺陷 | 后果 | 修复 / commit |
+|---|---|---|---|---|---|
+| 16 | 🟠 复制/双重掉落 | `BlockDrops.onBreak` | 仅按 `block.getType()` 匹配 `drop_from`，不区分**自然方块**与**已注册粘液/作物方块** | 成熟为 `SWEET_BERRY_BUSH` 的 WorldTaste 作物被破坏时：`CropListener` 掉作物产物 + `BlockDrops` 又掉 `WT_NGSCZZ1`(8%)/`WT_NGSCZZ2`(7%)，双重掉落；同理任何材质命中 `drop_from` 的已放置粘液方块可放置→破坏刷物 | 命中材质后跳过 `BlockStorage.check!=null` 的粘液方块，仅自然方块触发附赠掉落 — `5a7b831` |
+
+> 触发证据：`crops.yml` 约 20 个作物 `material: SWEET_BERRY_BUSH`（行 56/65/167/248/266/433/442/451/572/760/778/796/914/959/968/1040/1070/1115/1151…）；items.yml 行 1387、1409 两个 `drop_from: SWEET_BERRY_BUSH`。两者材质交集经全量核对**仅为 `SWEET_BERRY_BUSH`**。
+
+### 复查确认（本轮无问题项——附证据）
+- **`Read.item` 边界**：material 空→null；`amount<=0` 时保留堆默认（配方数据中无 0 量输入，不触发）；`slimefun` 型 undefined id → 告警并回退 STONE（`WT_XIANGYUNCF`/`WT_XUECHENGGQ` 两个内容缺口，r5 已记录、属作者数据）；`matchMaterial` null 安全 + GRASS/SCUTE 别名；`applyColor` `Color.fromRGB` 越界由 `RuntimeException` catch 兜住。**无解析期崩溃/越界**。
+- **`Read.recipe` 槽位边界**：固定 `size=9` 循环 `0..8` 读键 `"1".."9"`，越界键被忽略，返回定长数组。**无 AIOOBE**。
+- **`auto-detect` 类型覆盖**：`startsWith("ey")/"ew")` → skull 等前缀判断先于显式 `material_type`（与 RSC 一致）；无原版材质以 `ey/ew` 开头，无误判。
+- **`ItemsLoader.parseAmountRange`**：`"1-3"` 区间校验 `lo>=1 && hi>=lo`，非法格式回退 `{1,1}`；`dropFrom` 材质 `matchMaterial` 返回 null 时 `BlockDrops.add` 内 `block==null` 守卫直接忽略。**无脏数据崩溃**。
+- **作物 × drop_from 材质全量交集**：作物材质集合 {WHEAT, TORCHFLOWER_CROP, POTATOES, MELON_STEM, SWEET_BERRY_BUSH, BEETROOTS, NETHER_WART, PITCHER_CROP, COCOA, CARROTS, CHORUS_FLOWER, PUMPKIN_STEM} 与 drop_from 集合交集**仅 SWEET_BERRY_BUSH**（已由 #16 修复）；CHORUS_PLANT(drop_from) ≠ CHORUS_FLOWER(作物)，无其余重叠。
+
+### 待办（后续轮次）
+- **巨人丸 `spawnEntity(GIANT)` 绕过领地保护**（r2/r11 todo）：评估接入 `Slimefun.getProtectionManager()` 校验目标位置后再生成。
+- **`ScriptItemFactory` / `AttributeItems` 属性分派**（radiation/soulbound/anti_wither/piglin/energy_capacity/register.conditions）的专门核查（下一轮候选）。
+- **高负载机器配方匹配性能**实测（需实机）。

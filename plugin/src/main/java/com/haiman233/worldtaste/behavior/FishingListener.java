@@ -44,7 +44,7 @@ public final class FishingListener implements Listener {
                 for (Map<?, ?> m : bs.getMapList(bait)) {
                     Object id = m.get("id");
                     Object w = m.get("weight");
-                    if (id != null && w instanceof Number) {
+                    if (id instanceof String && w instanceof Number) {
                         drops.add(new Drop((String) id, ((Number) w).intValue()));
                     }
                 }

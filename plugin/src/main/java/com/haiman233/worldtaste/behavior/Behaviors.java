@@ -63,7 +63,10 @@ public final class Behaviors {
             if (s.isSet("remainingAir")) o.remainingAir = s.getInt("remainingAir");
             if (s.isSet("freezeTicks")) o.freezeTicks = s.getInt("freezeTicks");
             if (s.isSet("randomFood")) o.randomFood = s.getInt("randomFood");
-            o.offhandFlint = s.getBoolean("offhandFlint", false);
+            String offTool = s.getString("offhandTool");
+            if (offTool != null && !offTool.isEmpty()) {
+                o.offhandTool = Material.matchMaterial(offTool.trim().toUpperCase(java.util.Locale.ROOT));
+            }
             o.consumeOffhand = s.getBoolean("consumeOffhand", false);
             if (s.isList("potions")) {
                 for (Map<?, ?> pm : s.getMapList("potions")) {
@@ -147,7 +150,7 @@ public final class Behaviors {
         public Integer remainingAir;
         public Integer freezeTicks;
         public Integer randomFood;
-        public boolean offhandFlint;
+        public Material offhandTool;
         public boolean consumeOffhand;
         public final List<Potion> potions = new ArrayList<>();
         public String message;

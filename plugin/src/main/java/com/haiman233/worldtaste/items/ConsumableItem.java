@@ -12,7 +12,6 @@ import io.github.thebusybiscuit.slimefun4.core.attributes.NotPlaceable;
 import io.github.thebusybiscuit.slimefun4.core.handlers.ItemUseHandler;
 import io.github.thebusybiscuit.slimefun4.implementation.items.SimpleSlimefunItem;
 import java.util.concurrent.ThreadLocalRandom;
-import org.bukkit.Material;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -22,7 +21,7 @@ import org.bukkit.potion.PotionEffectType;
 
 /**
  * 消耗型食物（右键食用）。覆盖原 WT_eatConsumable 与独立食物脚本(yl/tang/jiu/yan/zhongdu 等)：
- * 主手消耗、副手校验(默认禁粘液物品；yan 需打火石)、按 opts 恢复饥饿/饱和/消耗/空气/冻结并施加药水。
+ * 主手消耗、副手校验(默认禁粘液物品；offhandTool 指定必备工具如 yan 打火石/xuejia 剪刀)、按 opts 恢复饥饿/饱和/消耗/空气/冻结并施加药水。
  */
 public class ConsumableItem extends SimpleSlimefunItem<ItemUseHandler> implements NotPlaceable {
 
@@ -41,9 +40,9 @@ public class ConsumableItem extends SimpleSlimefunItem<ItemUseHandler> implement
             PlayerInventory inv = p.getInventory();
             ItemStack off = inv.getItemInOffHand();
 
-            if (opts.offhandFlint) {
-                if (off == null || off.getType() != Material.FLINT_AND_STEEL) {
-                    p.sendMessage("您必须使用主手且副手持有打火石！");
+            if (opts.offhandTool != null) {
+                if (off == null || off.getType() != opts.offhandTool) {
+                    p.sendMessage("您必须使用主手且副手持有 " + opts.offhandTool.name().toLowerCase(java.util.Locale.ROOT).replace('_', ' ') + "！");
                     return;
                 }
             } else if (off != null && SlimefunItem.getByItem(off) != null) {
@@ -55,9 +54,9 @@ public class ConsumableItem extends SimpleSlimefunItem<ItemUseHandler> implement
             if (main == null || main.getAmount() <= 0) return;
             // 到 0 必须清空主手槽位，避免 0 数量幽灵物品残留（否则下次右键仍被识别/显示）
             Stacks.consumeOneInMainHand(inv);
-            if (opts.offhandFlint && opts.consumeOffhand) {
-                // 打火石为整件消耗（对齐原 yan.js 的 setAmount-1）：到 0 必须清空副手，
-                // 否则 0 数量打火石仍能通过 getType()==FLINT_AND_STEEL 校验，一根可无限点烟。
+            if (opts.offhandTool != null && opts.consumeOffhand) {
+                // 副手工具为整件消耗（对齐原 yan.js 打火石 / xuejia.js 剪刀的 setAmount-1）：
+                // 到 0 必须清空副手，否则 0 数量工具仍能通过 getType() 校验导致无限使用。
                 Stacks.consumeOneInOffHand(inv);
             }
 

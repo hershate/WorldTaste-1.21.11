@@ -258,6 +258,7 @@
     - {"type": "CONDUIT_POWER", "duration": 6000, "amplifier": 4}
     - {"type": "FIRE_RESISTANCE", "duration": 6000, "amplifier": 4}
     - {"type": "HUNGER", "duration": 800, "amplifier": 1}
+  "offhandTool": "SHEARS"
   "consumeOffhand": true
 "yan":
   "kind": "use"
@@ -265,7 +266,7 @@
     - {"type": "ABSORPTION", "duration": 1400, "amplifier": 2}
     - {"type": "DOLPHINS_GRACE", "duration": 1400, "amplifier": 1}
     - {"type": "HUNGER", "duration": 800, "amplifier": 1}
-  "offhandFlint": true
+  "offhandTool": "FLINT_AND_STEEL"
   "consumeOffhand": true
 "yangqi":
   "kind": "use"

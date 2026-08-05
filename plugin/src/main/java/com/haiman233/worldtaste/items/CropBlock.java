@@ -116,13 +116,19 @@ public class CropBlock extends SlimefunItem {
         List<CropDrop> drops = cfg.drops;
         java.util.Random rnd = new java.util.Random();
         if (cfg.weighted && !drops.isEmpty()) {
+            // 对齐 FishingListener.select 的健壮加权选择：
+            //   · total<=0（权重全非正的脏数据）时不产出，避免 rnd.nextDouble()*total 为负后逻辑错乱；
+            //   · 兜底选末项，保证 total>0 时浮点边界/末项权重为 0 仍至少产出一个掉落（原实现循环走完会什么都不掉）。
             double total = 0;
             for (CropDrop d : drops) total += d.weight;
+            if (total <= 0) return true;
             double r = rnd.nextDouble() * total;
+            CropDrop picked = drops.get(drops.size() - 1);
             for (CropDrop d : drops) {
                 r -= d.weight;
-                if (r <= 0) { dropItem(b, d.id); break; }
+                if (r <= 0) { picked = d; break; }
             }
+            dropItem(b, picked.id);
         } else {
             for (CropDrop d : drops) {
                 if (rnd.nextDouble() < d.chance) dropItem(b, d.id);

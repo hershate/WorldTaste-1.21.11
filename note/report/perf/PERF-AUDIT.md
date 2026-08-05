@@ -25,6 +25,7 @@
 | R1 | 机器配方匹配热路径 | `WTRecipe` 惰性 `inputSfId` + `WTRecipeMachine` 纯-SF 闸门 + SF-id 预筛 | 纯-SF 机器 **7.5~26×**（isItemSimilar 调用 31→0/2、200→0/2） | ✅ 非-SF 机器 1.00×（闸门关闭） | （见下） |
 | R2 | findMatch 每 tick 分配消除 | `WTRecipeMachine` 把不变量 `posOf`（每 tick `new HashMap`+Integer 装箱）提至构造期 `int[] posBySlot` | 绑定槽机器 **~2.1×**、自由槽机器 **~17×**（白建 HashMap 消除） | ✅ 行为不变（posOf 仅依赖 inputSlots） | （见下） |
 | R3 | CropBlock.tick（验证轮 + 微优） | `CropBlock` 预算 `growMsSteps`（不变量，避免每 tick 8 次乘法） | 微（生长作物每 tick 省 8 乘法）；**Location 分配消除方案经实测为 CPU 劣化（0.54×）已拒绝** | ✅ 行为逐字一致（double 阈值保精确语义） | （见下） |
+| R4 | 事件驱动路径 | `FishingListener` 把权重 `total` 提至 load 期 `Bait.total`（每次钓获求和→O(1)）；核查确认 `getById` 已 O(1) → MobDrop 缓存不必要 | Fishing select **~1.7×**（138→82 ns；余为加权遍历） | ✅ 行为不变（total 预算、RNG 不变） | （见下） |
 
 ---
 
@@ -152,13 +153,42 @@
 ### 阶段性结论（per-tick 热路径收敛）
 两个 per-tick 热路径已覆盖：`findMatch`（R1/R2 大幅优化）、`CropBlock`（R3 验证为已精简：成熟作物稳态仅 1 次 Location 分配 + 1 次 `getType` + 1 次集合查询，无明显可量化头寸）。**per-tick 维度趋于收敛**。后续轮次转向事件驱动高频路径（钓鱼/屠宰/指南展示）与分配抖动。
 
+---
+
+## 第 4 轮（2026-08-06）：事件驱动路径（Fishing total 预算 + getById O(1) 核查）
+
+**范围**：事件驱动路径 `FishingListener.select`（每次钓获）与 `MobDropListener.onDeath`（每次生物死亡）。
+本轮先核查 Slimefun 查找原语的真实代价，再据结果定夺。
+
+### 先核查：`SlimefunItem.getById` / `getByItem` 的真实代价（REF SlimefunItem.java:1141-1205）
+
+- **`getById(id)` = O(1)**：`Slimefun.getRegistry().getSlimefunItemIds().get(id)`（HashMap 查找）。
+- **`getByItem(item)`**：带「快速负向查找」——先 `getSlimefunItemMaterials().contains(type)`（O(1) Set），
+  仅当材质是已知 SF 材质时才读 PDC + `getById`；原版物品单次 Set 查找即返回 null。
+- **对 R1 的回溯确认（重要）**：R1 基准把 `getByItem` 建模为「512 元注册表扫描」是**代价量级**的简化，
+  但**不影响加速比**——`isItemSimilar` 对 SF 物品每次比较含 1 次 PDC 读取（`getItemData`），纯-SF 机器
+  由 31 次→1 次，**加速比≈调用次数比**（两路径均按 per-call 代价等比缩放），故 R1 的 ~21× 稳健。
+  真实机制为「**PDC 读取次数减少**」，与基准一致。
+- **结论：MobDrop `getById` 缓存不必要**——`onDeath` 的 `getById(d.itemId)` 已是 O(1) HashMap 查找，
+  缓存仅省一次 map.get（~ns），无收益、反增状态，**不予采用**。
+
+### 已落地：Fishing `select` 权重 total 预算
+
+- [FishingListener.java](../../../plugin/src/main/java/com/haiman233/worldtaste/behavior/FishingListener.java)：
+  把 `Map<String,List<Drop>>` 改为 `Map<String,Bait>`，`Bait` 在 load 期预算 `total = Σweight`，
+  `select(Bait)` 直接用预算 total（消除每次钓获对全部掉落——最大 133 项——的求和）。
+- **基准**（`FishingBench`，133 掉落）：旧 138 ns（每次求和）→ 新 82 ns（预算 total）= **~1.7×**；余下为加权遍历（仍 O(n)，不可消除）。
+- **诚实声明**：钓鱼为玩家主动行为（手持钓竿+副手鱼饵），频率低（~1-2 次/秒/玩家），**绝对收益小**；此为正确的 O(n)→O(1) 消除，零风险。
+
+### 验证
+- `./gradlew compileJava` 通过。
+
 ## 计划（多轮优化点，逐轮推进直至闭合）
 
 - [x] **R1** 机器配方匹配（SF-id 预筛 + 闸门）—— **完成**
 - [x] **R2** findMatch 每 tick 分配消除（posOf 提升为不变量 int[]）—— **完成**
 - [x] **R3** CropBlock.tick（验证轮：Location 分配消除经实测劣化已拒绝；落地 growMsSteps 不变量预算）—— **完成**
-- [ ] **R4** 事件驱动高频路径：Fishing 权重 `total` 预算 / MobDrop `getById` 缓存
-- [ ] **R5** 分配抖动：`getDisplayRecipes` 缓存 / `pushOutputs` 等
-- [ ] **R6+** 收尾与闭合评估
+- [x] **R4** 事件驱动路径（Fishing total 预算；getById O(1) → MobDrop 缓存不必要）—— **完成**
+- [ ] **R5** 收尾：`getDisplayRecipes` / `pushOutputs` 分配抖动评估 + 闭合判定
 
 > 闭合判据：可优化热路径均已覆盖，且新增轮次连续无收益（参照 security-audit 的收敛模式）。

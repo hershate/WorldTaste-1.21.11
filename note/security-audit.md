@@ -132,3 +132,17 @@
 ### 仍待
 - 实机加载验证（本环境无法运行服务端）。
 - 上述 2 个未定义 id 由内容作者处理。
+
+## 第 6 轮（2026-08-05）：机器/作物生命周期深挖验证
+
+**范围**：对照上游 Slimefun 源码与原 RSC 脚本，核查三个「疑似缺陷」。本轮为**验证轮**——确认均为非 bug，避免错误改动。无代码变更。
+
+### 验证结论
+
+| 疑点 | 核查依据 | 结论 |
+|---|---|---|
+| `WTWorkbench` 三重 BlockMenuPreset 注册（AContainer#1 + WTRecipeMachine#2 + WTWorkbench 匿名#3）会冲突/点击失效？ | `BlockMenuPreset` 构造器 `Slimefun.getRegistry().getMenuPresets().put(id, this)` 覆盖式自注册；`createPreset`（`InventoryBlock` default）= `new BlockMenuPreset`。三者同 id、最后 put 的 #3（带点击处理器）生效。 | **非 bug**：#3 生效，点击合成可用。#1/#2 为启动期冗余构建（2 个 workbench 类型 × 2 次，可忽略），且 #1 的 `constructMenu` 有 `inputSlots==null` 早返回守卫。 |
+| 机器重启丢失在合成中的进度（`active` 内存态）会吞输入？ | `MachineProcessor.startOperation` 用内存 `Map<BlockPosition,T>`（`putIfAbsent`），**不持久化**；`active` 与 op 同为内存态、成对 set/remove。 | **非 bug**：等同上游 AContainer（所有 Slimefun 机器均不持久化合成进度，重启丢失是上游固有行为）；`active` 与 op 不会失步，正常运行中不存在「op 完成但 r==null」场景。 |
+| `CropBlock` 重启后作物回退到 age 0？ | 原 `wt_crop.js` 同样用内存 `HashMap`（`lastUseTimes`/`giftif`），重启同样重置生长时序。 | **非 bug（设计一致）**：端口与原脚本均为内存态时序、重启重置生长；端口的 `setStage(0)` 仅是「立即重置」vs 原脚本「延迟经 handleGrowth 重算」的时序差异，终态一致。真正持久化需把时序写入 BlockStorage（属功能增强，会偏离原版）。 |
+
+> 收获：三处疑似问题经源码级核查均排除。代码层面的高产出审查已趋于饱和（r1–r5 已修复 ~12 处）。后续价值主要在**实机加载验证**与**内容数据补全**（2 个未定义 id），非代码缺陷。

@@ -503,3 +503,18 @@
 
 ### 阶段状态
 累计 **21 处修复 + 26 轮核查**。RSC 源码对照持续产出保真度修正（r24 FoodHelper、r26 chooseOne）。
+
+## 第 27 轮（2026-08-05）：noConsume/匹配算法 对比 RSC 源码（验证轮）
+
+> 把端口 [WTRecipeMachine.findMatch/consumeMatch](../plugin/src/main/java/com/haiman233/worldtaste/machines/WTRecipeMachine.java) 与 RSC [CustomRecipeMachine](../REF/RykenSlimeCustomizer-1.21.11/src/main/java/org/lins/mmmjjkx/rykenslimefuncustomizer/objects/customs/machine/CustomRecipeMachine.java) 的 noConsume 应用与匹配算法逐行对照。**验证轮：无缺陷、无代码改动**。
+
+### 复查确认（本轮无问题项——附证据）
+- **noConsume 应用一致**：RSC:399 `if(!noConsume.contains(i)) inv.consumeItem(inputSlots[chosen[i]], inputs[i].getAmount())` 与端口 `consumeMatch` 的 `if(!isNoConsume(i) && chosen[i]>=0) inv.consumeItem(inputSlots[chosen[i]], inputs[i].getAmount())` 等价。
+- **noConsume 解析一致**：RSC recipe 级 `noConsume` → clear+addAll(全部输入)；端口 `noConsumeAll || is.getBoolean("noConsume")`（每输入 OR）—— 语义等价（端口更简洁）。
+- **匹配算法一致**：first-match（首个 amount>=need 且 isItemSimilar 的槽）+ `distinct==n`（去重，对应 RSC LinkedHashMap size 校验）+ `fitAll` + `isItemSimilar(...,true)`，均与 RSC:348-404 一致。端口额外 `stillValid` 实时复校（比 RSC 仅靠 per-call 局部量更防异步，非结果分歧）。
+
+### 评估后【未改】的有益偏离（附理由）
+- **fitAll 失败：端口 `continue` vs RSC `return null`**：RSC 在首个输入匹配的配方上若输出放不下即 `return null`（机器空转）；端口 `continue` 尝试其它可合成配方。仅当多个配方共享同一输入时显现；端口行为更优（输出满时仍可合成替代配方而非卡死），对齐 RSC 反而功能倒退，故保留端口实现。
+
+### 阶段状态
+累计 **21 处修复 + 27 轮核查**。机器配方层（chooseOne/chance/noConsume/匹配）已与 RSC 全面对照：chooseOne 已对齐(r26)，noConsume/匹配本就一致，fitAll 为有益偏离(保留)。

@@ -48,7 +48,7 @@ public final class MenuLoader {
         WT.plugin.getLogger().info("menus.yml: 注册 " + ok);
     }
 
-    /** 解析槽位键：单值 "6" 或区间 "10-17"。 */
+    /** 解析槽位键：单值 "6" 或区间 "10-17"。非法/反转区间返回空数组（仅跳过该槽，不连累整个菜单）。 */
     private static int[] parseSlots(String key) {
         key = key.trim();
         int dash = key.indexOf('-');
@@ -56,13 +56,18 @@ public final class MenuLoader {
             try {
                 int lo = Integer.parseInt(key.substring(0, dash));
                 int hi = Integer.parseInt(key.substring(dash + 1));
-                int[] out = new int[hi - lo + 1];
-                for (int i = 0; i < out.length; i++) out[i] = lo + i;
-                return out;
+                // 反转区间(如 17-10)曾导致 NegativeArraySizeException 逃出 NumberFormatException
+                // 捕获、连累整个菜单注册失败；此处校验后返回空数组，实现故障隔离。
+                if (lo >= 0 && hi >= lo) {
+                    int[] out = new int[hi - lo + 1];
+                    for (int i = 0; i < out.length; i++) out[i] = lo + i;
+                    return out;
+                }
             } catch (NumberFormatException ignored) { }
         }
         try {
-            return new int[] { Integer.parseInt(key) };
+            int v = Integer.parseInt(key);
+            return v >= 0 ? new int[] { v } : new int[0];
         } catch (NumberFormatException e) {
             return new int[0];
         }

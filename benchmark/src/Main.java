@@ -46,7 +46,21 @@ public final class Main {
         System.out.println("\n[R4] Fishing select（每次钓获）");
         runFishing();
 
+        System.out.println("\n[R5] getDisplayRecipes（每次打开指南）");
+        runDisplay();
+
         System.out.println("\n(busywork sink=" + Cost.sink + " —— 非零证明代价未被死码消除)");
+    }
+
+    private static void runDisplay() {
+        for (int i = 0; i < 20_000; i++) {
+            DisplayBench.sink += DisplayBench.buildFresh().size();
+            DisplayBench.sink += DisplayBench.returnCached().size();
+        }
+        long fresh = timeOp(() -> DisplayBench.sink += DisplayBench.buildFresh().size());
+        long cached = timeOp(() -> DisplayBench.sink += DisplayBench.returnCached().size());
+        System.out.printf("  旧(每次重建156元列表)=%dns  vs  新(缓存返回)=%dns  → %.0fx（每次构建消除；指南低频，绝对小）%n",
+                fresh, cached, ratio(fresh, cached));
     }
 
     private static void runFishing() {

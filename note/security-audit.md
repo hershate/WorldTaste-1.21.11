@@ -589,3 +589,19 @@
 
 ### 阶段状态
 累计 **22 处修复 + 32 轮核查**，版本 `1.8.3-standalone`。jar 已含全部修复并打包完整。
+
+## 第 33 轮（2026-08-05）：死状态清理（itemScripts）+ ItemGroup 评估
+
+> 核查全局注册表是否有只写不读的死状态，并评估 ItemGroup 的 button 型差距。
+
+### 已清理
+
+| # | 类型 | 位置 | 说明 | commit |
+|---|---|---|---|---|
+| 23 | 死状态 | `WT.itemScripts` / `ItemsLoader.register` | `itemScripts`(itemId→脚本名) 在 register 写入但**全插件无读取**；其「用于后续挂接 Java 行为」的注释所述用途已被 `ScriptItemFactory`(按脚本名查 Behaviors) 取代。移除字段+写入 — `3ea0ff6` |
+
+### 评估后【未改】
+- **ItemGroup button 型差距**（已知）：groups.yml 38 个 `type:button` 组，端口注册为普通子组（点击开空分页），RSC 点击只执行 `actions`（此处全为 `'none'`=无操作）。差异仅为「多一个空页面」，**无功能损坏**（actions 全 none 无操作可执行），对齐需额外检测 button 类型并禁用开页，收益低，保留（standalone-plugin.md 已记录）。
+
+### 阶段状态
+累计 **22 处 bug 修复 + 1 处死状态清理 + 33 轮核查**，版本 `1.8.3-standalone`。

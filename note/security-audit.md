@@ -670,3 +670,18 @@
 
 ### 阶段状态
 累计 **22 bug 修复 + 1 死状态清理 + 38 轮核查**，版本 `1.8.3-standalone`。代码遗留标记、加载期网络、运行期内存三个长稳维度均清洁。
+
+## 第 39 轮（2026-08-05）：机器槽位角色重叠核查（验证轮 — 澄清 templateSlot 疑点）
+
+> 扫描机器 input/output/templateSlot/click 槽位角色重叠。先发现 templateSlot 与 input 重叠（疑似复合 bug），经 RSC 对照 + 配方结构核实为**忠实设计，非缺陷**。
+
+### 复查确认（本轮无问题项——附证据）
+- **input/output 槽位无重叠**：Python 扫描 recipe/linked/template/workbench 全机器，**无 input∩output**（无产出推入输入槽风险）。
+- **templateSlot 位于 input 数组 = RSC 既定设计（澄清疑点）**：
+  - WT_CHANLUANSHI: input=[18,27], templateSlot=27；WT_TUZAIJI: input=[18,36], templateSlot=36。
+  - RSC `TemplateMachineReader:69,121` 的 inputSlots **同样含 templateSlot**（[18,27]）→ 端口一致，非分歧。
+  - 槽 18=食材（消耗）、槽 27/36=模板（选配方组，经 `templateSlot` 读取）。配方均为 **1 食材输入**（WT_CHANLUANSHI 鸭子组 1 配方、WT_TUZAIJI 砍刀组 7 配方，首配方 input 键=['1']）→ `findMatch`(inputSlots=[18,27]) 1 输入匹配槽 18、模板在槽 27 **不被匹配/消耗**。与 RSC 一致。
+- **workbench click 槽**：无与 input/output 重叠（WT_BWWYL click=34、WT_HETUNGZT click=16，均独立）。
+
+### 阶段状态
+累计 **22 bug 修复 + 1 死状态清理 + 39 轮核查**，版本 `1.8.3-standalone`。槽位角色重叠维度核查清洁；templateSlot-in-input 经 RSC 对照确认为忠实设计。

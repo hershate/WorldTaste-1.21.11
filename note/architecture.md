@@ -84,3 +84,10 @@ scripts/
 ```
 
 统计（实测）：约 221 个文件；其中 **172 个**通过 `eval` 引用 `lib/wt_*.js`；**29 个**根目录脚本为独立逻辑（酒/烟/汤/氧气/中毒等，见 [scripts.md](scripts.md) §独立脚本）。
+
+## 5. 性能优化（独立插件版，持续进行）
+
+独立插件的性能热路径优化逐轮记录于 [report/perf/PERF-AUDIT.md](report/perf/PERF-AUDIT.md)，配套微基准在仓库根 `benchmark/`。
+已落地：**R1 机器配方匹配**——`WTRecipeMachine.findMatch` 对纯-SF 机器启用 SF-id 预筛（每 tick 每输入槽仅解析一次 SF id，
+用「两端均 SF 且 id 不同」的廉价必要条件跳过昂贵的 `isItemSimilar`/`getByItem`），机器级闸门保证非-SF 机器零回归。
+优化不改任何匹配结果（仅跳过确定不匹配者），完整保留 RSC 保真度。

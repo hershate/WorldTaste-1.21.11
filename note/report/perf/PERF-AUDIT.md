@@ -1,0 +1,101 @@
+# 性能优化审查日志（独立插件版）
+
+> 目标：在**不损害安全性/稳定性/兼容性（红线）**的前提下，优化插件性能（长时间高负载、多用户高频）。
+> 用户授权「必要时可完全重写结构」。每轮从不同优化点出发，**必须把当轮的优化方面做完**；必要时做多方面复合优化。
+> 每轮：编写/更新 `benchmark/` 测试程序量化前后性能 → 生成对比报告到本目录 → 更新 note 其它内容 → 细粒度 commit。
+> 只维护**插件版本**（plugin/）。
+>
+> 状态文件：本文件记录每轮结论与累计修复，供 /loop 持续优化跨轮续作。当前版本基线 `1.8.3-standalone`。
+
+## 方法论与诚实声明
+
+- **基准性质**：`benchmark/` 为**算法微基准**，无 Bukkit/服务端依赖（本环境无法运行 Paper+Slimefun，见
+  [../../server-verification-checklist.md](../../server-verification-checklist.md)）。`similarity()` 按 REF
+  `SlimefunUtils.isItemSimilar`（[SlimefunUtils.java:350-376](../../../REF/RykenSlimeCustomizer-1.21.11/REF/Slimefun4.1/src/main/java/io/github/thebusybiscuit/slimefun4/utils/SlimefunUtils.java)）的**代价结构**建模
+  （类型/数量校验廉价；类型匹配后 2× `getByItem` 昂贵，以「扫描数据相关注册表数组」模拟、不可被 JIT 常量折叠）。
+- **主指标 `similarity 调用数/次`** 与生产端 `isItemSimilar` 调用数**同构**（同一算法），可直接外推生产收益；
+  耗时为次指标。**绝对生产 TPS 仍需真实服务端实测**（已知缺口，与既有审查一致）。
+- **红线**：任一优化须 (1) 行为保持（对齐 RSC 保真度，见 [../../security-audit.md](../../security-audit.md)）；
+  (2) 不引入复制/吞物品/级联崩溃等数据安全问题；(3) **对未优化的机器/路径零回归**（基准须显示 ≥1.00x）。
+
+## 累计状态
+
+| 轮 | 优化点 | 生产改动 | 基准收益（代表值） | 零回归 | commit |
+|---|---|---|---|---|---|
+| R1 | 机器配方匹配热路径 | `WTRecipe` 惰性 `inputSfId` + `WTRecipeMachine` 纯-SF 闸门 + SF-id 预筛 | 纯-SF 机器 **7.5~26×**（isItemSimilar 调用 31→0/2、200→0/2） | ✅ 非-SF 机器 1.00×（闸门关闭） | （见下） |
+
+---
+
+## 第 1 轮（2026-08-05）：机器配方匹配热路径（findMatch）
+
+**范围**：`WTRecipeMachine.findMatch`（电力配方机 / 模板机每 tick 匹配输入）。这是高负载下最显著的可优化热路径。
+
+### 热路径分析（为何是它）
+
+- `AContainer.tick` 在「无在合成操作」时每 tick（10Hz）调用 `findNextRecipe → findMatch`。
+- 最坏情形：机器**输出被占满**或**持有不匹配输入**时，每 tick 全量扫描该机器所有配方，每比较一次调
+  `SlimefunUtils.isItemSimilar(in, need, true)`。
+- `isItemSimilar`（REF 行 350-376）在**类型匹配后**会调用 `SlimefunItem.getByItem()` **两次**（item 与 sfitem 各一）——
+  对 SF 头颅类物品（材质同为 `PLAYER_HEAD`、仅 SF id 不同）而言，**每条配方比较都付此代价**。
+- 真实规模：`WT_SHUIZUXIANG` 78 配方、`WT_HWSCPCLJ` 31 配方、`WT_CHANLUANSHI` 21 配方等（见下方闸门表）。
+
+### 优化设计：SF-id 预筛 + 纯-SF 机器闸门
+
+1. **`WTRecipe.inputSfId(i)`**（[WTRecipe.java](../../../plugin/src/main/java/com/haiman233/worldtaste/machines/WTRecipe.java)）：
+   惰性预解析每个输入的 SF id（`SlimefunItem.getByItem(need).getId()`，原版输入为 null），缓存。
+2. **每 tick 预解析各输入槽 SF id**（`resolveSlotSfIds`，读 PDC `Slimefun.getItemDataService().getItemData`）——
+   每槽**每 tick 一次**，而非每次比较一次。这是收益来源。
+3. **廉价必要条件预筛 `idCertainlyMismatch`**：`inId != null && needId != null && !inId.equals(needId)` 为真时
+   **跳过** `isItemSimilar`（两端均 SF 且 id 不同 → `isItemSimilar` 的 both-SF 分支必返回 false）。
+4. **机器级闸门 `sfPrune`**（`computeSfPrune`）：仅当「≥2 配方 且 所有非空输入均为 SF 物品」时启用；
+   否则 `slotSfId=null`、`!(sfPrune && …)` 短路为 true，**代码路径与优化前逐字一致（零回归）**。
+
+### 安全性 / 保真度（红线核查）
+
+- **跳过的安全性证明**：仅在「两端均已解析为 SF 物品且 id 不同」时跳过；此情形下 `isItemSimilar` 的 both-SF 分支
+  （REF 行 363-366）按 id 比较必返回 false，故跳过不改变任何匹配结果。其余情形（任一原版、id 相同、无 PDC、
+  DistinctiveItem）一律仍走 `isItemSimilar` 定夺 —— **完整保留 RSC 保真度与 r27 的 first-match/distinct 语义**。
+- **闸门零回归**：非纯-SF 机器（原版材质主导、类型短路已廉价；或混合机器原版输入先行 gating）预筛无收益反增开销，
+  故闸门对其关闭 → 逐字回退原算法。基准实测 SHUIZUXIANG(78 原版)/FUHUASHI(22 混合) 均 **1.00×**。
+- **`stillValid` 复校不变**：仍对选中槽实时再 `isItemSimilar`（不用预解析 id），竞态防护不变（r1）。
+- **惰性解析无加载期回归**：`inputSfId` 仅在闸门检查 / 启用机器的 tick 中解析；多方块机不经过此路径不付出开销。
+
+### 基准结果（benchmark/，JDK 21.0.12 / 16 核，代表值；详见 results.txt）
+
+| 场景（对应真实机器形态） | 闸门 | 用例 | Linear 现状 | Optimized | 加速 |
+|---|---|---|---|---|---|
+| SHUIZUXIANG 78 单输入·原版材质 | off | noMatch/hitLast | ns≈880~1381, sim=78~79 | = Linear | **1.00×** |
+| HWSCPCLJ 31 单输入·SF 头颅 | **ON** | noMatch | ns=9206, sim=31 | ns=439, sim=**0**, res=1 | **~21×** |
+| HWSCPCLJ 31 单输入·SF 头颅 | **ON** | hitLast | ns=9497, sim=32 | ns=1112, sim=**2**, res=1 | **~8.5×** |
+| FUHUASHI 22 双输入·混合 | off | noMatch/hitLast | ns≈7638~13137, sim=88~89 | = Linear | **1.00×** |
+| STRESS 200 单输入·SF 头颅（压力放大） | **ON** | noMatch | ns=62480, sim=200 | ns=2369, sim=**0**, res=1 | **~26×** |
+| STRESS 200 单输入·SF 头颅 | **ON** | hitLast | ns=60723, sim=201 | ns=3016, sim=**2**, res=1 | **~20×** |
+
+> 解读：纯-SF 机器的 `isItemSimilar`（含 2× getByItem）调用数从 O(配方数) 降至 O(命中数)；耗时随配方数线性下降。
+> 原/混合机器逐字不变。`busywork sink` 非零证明代价未被 JIT 死码消除。
+
+### 生产闸门映射（真实 recipe_machines.yml + template_machines.yml，PyYAML 实测）
+
+- **闸门 ON（受益）**：WT_ZHONGZIJDY(15)、WT_NGZHONGZIJDY(5)、WT_HWSCPCLJ(31)、WT_XIELONG(7)、WT_CHANLUANSHI(21,模板)、WT_TUZAIJI(2,模板)。
+- **闸门 off（零回归）**：WT_SHUIZUXIANG(78)、WT_FUHUASHI(22)、WT_BUYUWANG、WT_TONGCANG、WT_SHIPINYLJGJ、WT_RENZAOROUHCJ(_V1~V5)、WT_BEICHALU、WT_DIANCHAHU、WT_SHUICHANPEIYUJI 等。
+
+### 验证
+
+- `./gradlew compileJava` 通过（BUILD SUCCESSFUL）。
+- 基准 `javac src/*.java && java bench.Main` 通过，sink 非零。
+
+### 待办（后续轮次候选，非本轮范围）
+
+- 原/混合机器的线性扫描仍为 O(配方数) 廉价类型短路——若需进一步降常数可考虑 Material 索引（R 候选）。
+- 其它热路径：`pushOutputs` 分配抖动、`CropBlock.tick`、加载期 `Read.item` 双趟、MobDrop/Fishing 等（见本文件「计划」）。
+
+## 计划（多轮优化点，逐轮推进直至闭合）
+
+- [x] **R1** 机器配方匹配（SF-id 预筛 + 闸门）—— **完成**
+- [ ] **R2** 配方产出推送 `pushOutputs`（`ArrayList`/`chooseOne` 分配抖动）
+- [ ] **R3** 作物 `CropBlock.tick`（生长公式 / 状态结构 / `System.currentTimeMillis` 频次）
+- [ ] **R4** 加载期 `Read.item` / `preloadDisplays` 双趟（启动 1~3 分钟）
+- [ ] **R5** MobDrop `getById` 缓存 / Fishing 权重 `total` 预算
+- [ ] **R6+** 复合优化与收尾（`getDisplayRecipes` 缓存、menu 构建、行为数据结构等），直至闭合
+
+> 闭合判据：可优化热路径均已覆盖，且新增轮次连续无收益（参照 security-audit 的收敛模式）。

@@ -563,3 +563,17 @@
 
 ### 阶段状态
 累计 **22 处修复 + 30 轮核查**。RSC 源码对照方向持续产出（r24 FoodHelper、r26 chooseOne、r30 moreOutputIfMoreTemplates 共 3 处保真度修正）。
+
+## 第 31 轮（2026-08-05）：工作台对比 RSC（验证轮）
+
+> 把端口 [WTWorkbench](../plugin/src/main/java/com/haiman233/worldtaste/machines/WTWorkbench.java) 与 RSC [CustomWorkbench](../REF/RykenSlimeCustomizer-1.21.11/src/main/java/org/lins/mmmjjkx/rykenslimefuncustomizer/objects/customs/machine/CustomWorkbench.java) 对照。**验证轮：无缺陷、无代码改动**。
+
+### 复查确认（本轮无问题项——附证据）
+- **匹配按绑定槽（pattern，位置敏感）**：先前误判工作台为「自由/无序匹配」系 grep 缩进误读（输入 `slot:` 在 10 空格缩进）。实测 workbenches.yml 加工配方每个输入均带 `slot:` 绑定（0,1,2,3,4,5,9,10…），端口 `findMatch` 的 `posOf.get(bound)` 按位匹配，与 RSC `findNextLinkedRecipe`（inputMap: slot→item，按槽匹配）**等价**。
+- **输出绑定**：工作台输出带 `slot:` 绑定（如 slot 43），端口 `WTRecipe.pushOutputs` 按 `outSlots[i]` 推入绑定槽，与 RSC LinkedOutput 等价。
+- **noConsume**：workbenches.yml 中 **0 处**（无需按索引/槽位对照）。
+- **chooseOne（2 配方）**：经核查 2 个 chooseOne 配方均为**单一输出**（output 段仅 1 项），chooseOne 在单输出下无效 → r29 双循环分歧（需 mixed 绑定+自由输出）**不显现**。
+- **RSC WorkbenchReader 要求每个输入有 slot**（无则报错跳过，:262-267）：WorldTaste 工作台输入均带 slot，满足要求；端口同样读 slot 绑定，一致。
+
+### 阶段状态
+累计 **22 处修复 + 31 轮核查**。RSC 源码对照已覆盖全部机器类型（recipe/linked/multiblock/template/workbench）+ FoodHelper/readItem：3 处保真度修正，其余忠实或有益偏离。

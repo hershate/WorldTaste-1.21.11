@@ -101,8 +101,6 @@ public final class ItemsLoader {
             BlockDrops.add(block, effId, spec.dropChance, range[0], range[1]);
         }
 
-        String script = s.getString("script");
-        if (script != null) WT.itemScripts.put(effId, script.trim());
         return true;
     }
 

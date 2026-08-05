@@ -22,8 +22,6 @@ public final class WT {
     public static final Map<String, ItemStack> preload = new HashMap<>();
     /** id -> 菜单定义（来自 menus.yml，供机器 GUI 使用） */
     public static final Map<String, MenuDef> menus = new HashMap<>();
-    /** itemId -> 脚本名（用于后续挂接 Java 行为） */
-    public static final Map<String, String> itemScripts = new HashMap<>();
 
     public static ItemGroup group(String id) {
         if (id == null) return null;

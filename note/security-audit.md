@@ -731,3 +731,16 @@
 
 ### 阶段状态
 累计 **22 bug 修复 + 1 死状态清理 + 43 轮核查**，版本 `1.8.3-standalone`。掉落物 id 可解析性（作物 r42/钓鱼 r43）与引用完整性（material/recipe_type/script/id_alias/item_group）全维度清洁。
+
+## 第 44 轮（2026-08-05）：菜单装饰 slimefun 引用核查（验证轮 — 最后一个引用维度）
+
+> 核查 menus.yml 菜单装饰物的 slimefun 引用可解析性（未定义→`Read.item` 回退 STONE，装饰显示为石头）。**验证轮：无缺陷、无代码改动**。
+
+### 复查确认（本轮无问题项——附证据）
+- **Python(PyYAML) 递归扫描** menus.yml 全部 `material_type:slimefun` 引用 → **0 个**（菜单装饰全用 skull_hash/mc，无 slimefun 引用）→ 不存在未定义 slimefun 引用致 STONE 回退。
+
+### 引用完整性维度全部覆盖完成（r5+r16+r13/r15+r18+r41-r44）
+material 引用 / recipe_type / 脚本 / id_alias / item_group / 作物掉落 / 钓鱼掉落 / 菜单引用 —— **全部清洁，无未解析引用**。唯一遗留为内容作者缺口：`WT_XIANGYUNCF`、`WT_XUECHENGGQ`（r5，指南显示石头，需作者补定义）。
+
+### 最终状态
+累计 **22 bug 修复 + 1 死状态清理 + 44 轮核查**，版本 `1.8.3-standalone`。**全部可静态核查的维度（代码/数据/引用/掉落/复合/槽位/内存/构建/RSC对照/交互）已逐项覆盖且清洁**，静态层面无已知遗留缺陷。r31–r44 连续 14 轮验证轮零新发现。剩余唯一路径为**实机加载/运行验证**（[server-verification-checklist.md](server-verification-checklist.md)，需真实服务端）。

@@ -49,6 +49,9 @@ public final class Main {
         System.out.println("\n[R5] getDisplayRecipes（每次打开指南）");
         runDisplay();
 
+        System.out.println("\n[R6] 启动期 YAML 解析缓存（每次加载）");
+        runLoad();
+
         System.out.println("\n(busywork sink=" + Cost.sink + " —— 非零证明代价未被死码消除)");
     }
 
@@ -72,6 +75,36 @@ public final class Main {
         long newNs = timeOp(() -> FishingBench.sink += FishingBench.selectNew(FishingBench.BAIT) == null ? 0 : 1);
         System.out.printf("  旧(每次求和133)=%dns  vs  新(预算total)=%dns  → %.2fx（O(n)→O(1)，绝对小但零风险）%n",
                 oldNs, newNs, ratio(oldNs, newNs));
+    }
+
+    private static void runLoad() {
+        // 预热
+        for (int i = 0; i < 5; i++) {
+            long[] s = { 0 };
+            LoadBench.oldLoad(s);
+            LoadBench.newLoad(s);
+            Cost.sink += s[0];
+        }
+        int ITERS = 50;
+        long[] sink = { 0 };
+        long t0 = System.nanoTime();
+        int oldParses = 0;
+        for (int i = 0; i < ITERS; i++) oldParses += LoadBench.oldLoad(sink);
+        long oldNs = System.nanoTime() - t0;
+        t0 = System.nanoTime();
+        int newParses = 0;
+        for (int i = 0; i < ITERS; i++) newParses += LoadBench.newLoad(sink);
+        long newNs = System.nanoTime() - t0;
+        Cost.sink += sink[0];
+        System.out.printf("  数据源: %s（%.2f MB，10 文件）%n",
+                LoadBench.usedRealFiles ? "仓库根真实内容文件" : "合成代表内容（未找到真实文件）",
+                LoadBench.TOTAL_BYTES / 1048576.0);
+        System.out.printf("  解析次数/次加载: 旧=%d  新=%d   （10 文件 ×2 → ×1，余为缓存命中）%n",
+                oldParses / ITERS, newParses / ITERS);
+        System.out.printf("  总耗时(%d 次加载): 旧=%.1fms  新=%.1fms  → %.2fx%n",
+                ITERS, oldNs / 1e6, newNs / 1e6, ratio(oldNs, newNs));
+        System.out.println("  说明：消除 10 个内容文件的重复解析（生产端还省去重复的 jar 资源读取）。");
+        System.out.println("        R3 既有结论：加载主体代价仍为头颅贴图解码(PlayerSkin.fromHash)；本项为零风险确定性消除。");
     }
 
     private static long timeOp(Runnable op) {

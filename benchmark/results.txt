@@ -4,13 +4,38 @@ warmup done
 
 scenario                           gate | case     in#  | Linear(cur): ns sim | Optimized: ns sim res  | speedup
 ------------------------------------------------------------------------------------------------------------------------
-SHUIZUXIANG 78 �����롤ԭ�����        g=off |  noMatch d=1 | ns=   880 sim=  78 | = Linear (gate off)  | 1.00x
-SHUIZUXIANG 78 �����롤ԭ�����        g=off |  hitLast d=1 | ns=  1381 sim=  79 | = Linear (gate off)  | 1.00x
-HWSCPCLJ 31 �����롤SFͷ­           g=ON  |  noMatch d=1 | L:ns=  9206 sim=  31 | O:ns=   439 sim=   0 res=1 | 20.97x
-HWSCPCLJ 31 �����롤SFͷ­           g=ON  |  hitLast d=1 | L:ns=  9497 sim=  32 | O:ns=  1112 sim=   2 res=1 | 8.54x
-FUHUASHI 22 ˫���롤���             g=off |  noMatch d=2 | ns= 13137 sim=  88 | = Linear (gate off)  | 1.00x
-FUHUASHI 22 ˫���롤���             g=off |  hitLast d=2 | ns=  7638 sim=  89 | = Linear (gate off)  | 1.00x
-STRESS 200 �����롤SFͷ­            g=ON  |  noMatch d=1 | L:ns= 62480 sim= 200 | O:ns=  2369 sim=   0 res=1 | 26.37x
-STRESS 200 �����롤SFͷ­            g=ON  |  hitLast d=1 | L:ns= 60723 sim= 201 | O:ns=  3016 sim=   2 res=1 | 20.13x
+SHUIZUXIANG 78 单输入·原版材质        g=off |  noMatch d=1 | ns=   937 sim=  78 | = Linear (gate off)  | 1.00x
+SHUIZUXIANG 78 单输入·原版材质        g=off |  hitLast d=1 | ns=  1476 sim=  79 | = Linear (gate off)  | 1.00x
+HWSCPCLJ 31 单输入·SF头颅           g=ON  |  noMatch d=1 | L:ns=  9004 sim=  31 | O:ns=   444 sim=   0 res=1 | 20.28x
+HWSCPCLJ 31 单输入·SF头颅           g=ON  |  hitLast d=1 | L:ns=  9707 sim=  32 | O:ns=  1130 sim=   2 res=1 | 8.59x
+FUHUASHI 22 双输入·混合             g=off |  noMatch d=2 | ns= 13200 sim=  88 | = Linear (gate off)  | 1.00x
+FUHUASHI 22 双输入·混合             g=off |  hitLast d=2 | ns=  7597 sim=  89 | = Linear (gate off)  | 1.00x
+STRESS 200 单输入·SF头颅            g=ON  |  noMatch d=1 | L:ns= 61009 sim= 200 | O:ns=  2336 sim=   0 res=1 | 26.12x
+STRESS 200 单输入·SF头颅            g=ON  |  hitLast d=1 | L:ns= 61107 sim= 201 | O:ns=  2998 sim=   2 res=1 | 20.38x
 
-(busywork sink=1689476553731771 ���� ����֤������δ����������)
+[R2] posOf 查表开销（per findMatch 调用）
+  bound 槽机器: 旧(build+lookup)=39 ns  →  新(lookup)=29 ns   1.34x
+  free  槽机器: 旧(build,从不查)=30 ns  →  新(摊销≈0)=3 ns   10.00x
+  (free 槽机器占 recipe_machines 多数：旧路径每 tick 白建 HashMap，新路径零开销)
+
+[R3] CropBlock 状态查询（每 tick 每成熟作物）
+  [假设A] Location 分配消除（pack-long+双层map,0分配）:
+    旧(Location分配+1查)=16ns  vs  新(0分配+2查)=23ns  → 0.70x（CPU 劣化，拒绝）
+    分配 500000→0/op（GC 受益，但 per-tick CPU 翻倍，高负载下损 TPS，不予采用）
+  [采用] map 合并（grown set + lastUse map → 单 map，growing 作物 2 查→1 查）:
+    旧(2 查询)=12ns  vs  新(1 查询)=11ns  → 1.09x（同 1 分配，查询减半）
+
+[R4] Fishing select（每次钓获）
+  旧(每次求和133)=141ns  vs  新(预算total)=81ns  → 1.74x（O(n)→O(1)，绝对小但零风险）
+
+[R5] getDisplayRecipes（每次打开指南）
+  旧(每次重建156元列表)=276ns  vs  新(缓存返回)=3ns  → 92x（每次构建消除；指南低频，绝对小）
+
+[R6] 启动期 YAML 解析缓存（每次加载）
+  数据源: 仓库根真实内容文件（4.63 MB，10 文件）
+  解析次数/次加载: 旧=20  新=10   （10 文件 ×2 → ×1，余为缓存命中）
+  总耗时(50 次加载): 旧=1128.8ms  新=558.2ms  → 2.02x
+  说明：消除 10 个内容文件的重复解析（生产端还省去重复的 jar 资源读取）。
+        R3 既有结论：加载主体代价仍为头颅贴图解码(PlayerSkin.fromHash)；本项为零风险确定性消除。
+
+(busywork sink=1669717075812916 —— 非零证明代价未被死码消除)

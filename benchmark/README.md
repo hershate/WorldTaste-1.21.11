@@ -23,6 +23,7 @@ run.bat         # Windows
 | `src/Cost.java` | 成本模型 + 计数器：`similarity()` 复刻 `isItemSimilar` 代价结构；`resolveSlotId()` 复刻读 PDC |
 | `src/Matcher.java` | 匹配算法两实现 + 闸门：`matchLinear`（现状）、`matchPruned`（SF-id 预筛）、`matchGated`（机器级闸门） |
 | `src/Scenarios.java` | 依真实 recipe_machines.yml 形态生成的代表性场景 |
+| `src/LoadBench.java` | R6 启动期 YAML 解析缓存基准：用仓库根【真实 10 个内容文件】量化解析次数(20→10)/加载与耗时 |
 | `src/Main.java` | 预热 + 自适应计时主程序 |
 | `results.txt` | 最近一次运行输出（仅供参考；报告以多次运行的中位趋势为准） |
 

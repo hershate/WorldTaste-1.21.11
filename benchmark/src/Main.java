@@ -40,7 +40,42 @@ public final class Main {
         System.out.println("\n[R2] posOf 查表开销（per findMatch 调用）");
         runPosOf();
 
+        System.out.println("\n[R3] CropBlock 状态查询（每 tick 每成熟作物）");
+        runCrop();
+
         System.out.println("\n(busywork sink=" + Cost.sink + " —— 非零证明代价未被死码消除)");
+    }
+
+    private static void runCrop() {
+        // 预热
+        for (int i = 0; i < 50_000; i++) {
+            CropBench.sink += CropBench.oldMature(0, 7, 64, 7) ? 1 : 0;
+            CropBench.sink += CropBench.newMature(0, 7, 64, 7) ? 1 : 0;
+            CropBench.sink += CropBench.oldGrowing(0, 7, 64, 7) ? 1 : 0;
+            CropBench.sink += CropBench.newGrowing(0, 7, 64, 7) ? 1 : 0;
+        }
+        System.out.println("  [假设A] Location 分配消除（pack-long+双层map,0分配）:");
+        CropBench.allocCount = 0;
+        long aOld = timeCrop(() -> CropBench.sink += CropBench.oldMature(0, 7, 64, 7) ? 1 : 0);
+        long aOldAlloc = CropBench.allocCount;
+        long aNew = timeCrop(() -> CropBench.sink += CropBench.newMature(0, 7, 64, 7) ? 1 : 0);
+        System.out.printf("    旧(Location分配+1查)=%dns  vs  新(0分配+2查)=%dns  → %.2fx（CPU 劣化，拒绝）%n",
+                aOld, aNew, ratio(aOld, aNew));
+        System.out.printf("    分配 %d→0/op（GC 受益，但 per-tick CPU 翻倍，高负载下损 TPS，不予采用）%n", aOldAlloc);
+
+        System.out.println("  [采用] map 合并（grown set + lastUse map → 单 map，growing 作物 2 查→1 查）:");
+        CropBench.allocCount = 0;
+        long bOld = timeCrop(() -> CropBench.sink += CropBench.oldGrowing(0, 7, 64, 7) ? 1 : 0);
+        long bNew = timeCrop(() -> CropBench.sink += CropBench.newGrowing(0, 7, 64, 7) ? 1 : 0);
+        System.out.printf("    旧(2 查询)=%dns  vs  新(1 查询)=%dns  → %.2fx（同 1 分配，查询减半）%n",
+                bOld, bNew, ratio(bOld, bNew));
+    }
+
+    private static long timeCrop(Runnable op) {
+        int iters = 500_000;
+        long t0 = System.nanoTime();
+        for (int i = 0; i < iters; i++) op.run();
+        return (System.nanoTime() - t0) / iters;
     }
 
     private static void runPosOf() {

@@ -36,6 +36,8 @@ public final class Setup {
         // R6：所有内容/行为文件加载完毕，释放 Yaml 文件名缓存的解析树（长稳：避免长期持有 ~MB 级解析对象树）。
         // 经核查无 Loader 以字段持久持有 ConfigurationSection，registerListeners 也不再访问 YAML，释放安全。
         Yaml.clearCache();
+        // R7：释放头颅贴图(PlayerSkin)去重缓存（Read 仅加载期使用，运行期不再调 Read.item/recipe）。
+        Read.clearSkinCache();
         WT.plugin.getLogger().info("基础内容加载完成，耗时 " + (System.currentTimeMillis() - t) + "ms");
     }
 

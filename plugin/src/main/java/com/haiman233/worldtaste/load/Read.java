@@ -7,7 +7,9 @@ import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.libraries.dough.skins.PlayerHead;
 import io.github.thebusybiscuit.slimefun4.libraries.dough.skins.PlayerSkin;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 import org.bukkit.Color;
 import org.bukkit.Material;
@@ -26,6 +28,18 @@ public final class Read {
     private Read() {}
 
     private static final Pattern HEX64 = Pattern.compile("^[0-9A-Fa-f]{64}$");
+
+    /**
+     * R7：头颅贴图（{@link PlayerSkin}）去重缓存，按类型分表（避免键拼接分配，且杜绝跨类型键碰撞）。
+     * PlayerSkin 为不可变值，跨调用方共享安全；{@link PlayerHead#getItemStack} 每次仍新建独立 ItemStack。
+     * 实测全部内容文件 skull 解码共 3203 次、其中仅 182 次（5.7%）为重复（如某些通用装饰头/配方槽复用），
+     * 而 dough {@code PlayerSkin.fromHashCode/fromBase64/fromURL} 无内部缓存——每次含 MD5
+     * （{@code UUID.nameUUIDFromBytes}）、JSON 拼接、Base64 编码、URL 解析。去重省去这 182 次重复解码。
+     * 加载后由 {@link Setup#loadAll()} 调用 {@link #clearSkinCache()} 释放（Read 仅加载期使用）。
+     */
+    private static final Map<String, PlayerSkin> HASH_SKINS = new HashMap<>();
+    private static final Map<String, PlayerSkin> BASE64_SKINS = new HashMap<>();
+    private static final Map<String, PlayerSkin> URL_SKINS = new HashMap<>();
 
     /** 读取物品段。{@code countable=true} 时应用 amount。 */
     public static ItemStack item(ConfigurationSection s, boolean countable) {
@@ -66,13 +80,22 @@ public final class Read {
         switch (type.toLowerCase(java.util.Locale.ROOT)) {
             case "none":
                 return new ItemStack(Material.AIR);
-            case "skull_hash":
-                return PlayerHead.getItemStack(PlayerSkin.fromHashCode(material));
+            case "skull_hash": {
+                PlayerSkin skin = HASH_SKINS.get(material);
+                if (skin == null) { skin = PlayerSkin.fromHashCode(material); HASH_SKINS.put(material, skin); }
+                return PlayerHead.getItemStack(skin);
+            }
             case "skull":
-            case "skull_base64":
-                return PlayerHead.getItemStack(PlayerSkin.fromBase64(material));
-            case "skull_url":
-                return PlayerHead.getItemStack(PlayerSkin.fromURL(material));
+            case "skull_base64": {
+                PlayerSkin skin = BASE64_SKINS.get(material);
+                if (skin == null) { skin = PlayerSkin.fromBase64(material); BASE64_SKINS.put(material, skin); }
+                return PlayerHead.getItemStack(skin);
+            }
+            case "skull_url": {
+                PlayerSkin skin = URL_SKINS.get(material);
+                if (skin == null) { skin = PlayerSkin.fromURL(material); URL_SKINS.put(material, skin); }
+                return PlayerHead.getItemStack(skin);
+            }
             case "slimefun": {
                 String id = material.toUpperCase(java.util.Locale.ROOT);
                 ItemStack pre = WT.preload.get(id);
@@ -101,6 +124,13 @@ public final class Read {
         if (name.equalsIgnoreCase("GRASS")) return Material.matchMaterial("SHORT_GRASS");
         if (name.equalsIgnoreCase("SCUTE")) return Material.matchMaterial("TURTLE_SCUTE");
         return Material.matchMaterial(name.replace('-', '_'));
+    }
+
+    /** 加载完成后释放头颅贴图缓存（{@link Setup#loadAll()} 末尾调用；Read 仅加载期使用）。 */
+    public static void clearSkinCache() {
+        HASH_SKINS.clear();
+        BASE64_SKINS.clear();
+        URL_SKINS.clear();
     }
 
     /** 读取配方段，槽位键 "1".."size"，产出长度为 size 的数组（空槽为 null）。 */

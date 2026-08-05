@@ -114,7 +114,9 @@ public final class Behaviors {
                         Object id = mm.get("id");
                         Object w = mm.get("weight");
                         if (id instanceof String && w instanceof Number) {
-                            c.drops.add(new CropDrop((String) id, 0, ((Number) w).doubleValue()));
+                            double wv = ((Number) w).doubleValue();
+                            c.drops.add(new CropDrop((String) id, 0, wv));
+                            c.weightTotal += wv; // R8: load 期预算权重总和（对齐 R4）
                         } else {
                             WT.log("crop " + name + " 的 weightedDrops 项缺少 id/weight，跳过该项");
                         }
@@ -173,6 +175,9 @@ public final class Behaviors {
         public String stages;
         public final List<CropDrop> drops = new ArrayList<>();
         public boolean weighted = false;
+        /** 加权掉落的权重总和，load 期一次预算（对齐 R4 FishingListener.Bait.total）。
+         *  CropBlock.onBreak 直接用此值，消除每次收获对 drops 的求和（O(n)→O(1)）。仅 weighted 作物有意义。 */
+        public double weightTotal = 0;
     }
 
     public static final class CropDrop {

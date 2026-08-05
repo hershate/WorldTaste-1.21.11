@@ -123,8 +123,8 @@ public class CropBlock extends SlimefunItem {
             // 对齐 FishingListener.select 的健壮加权选择：
             //   · total<=0（权重全非正的脏数据）时不产出，避免 rnd.nextDouble()*total 为负后逻辑错乱；
             //   · 兜底选末项，保证 total>0 时浮点边界/末项权重为 0 仍至少产出一个掉落（原实现循环走完会什么都不掉）。
-            double total = 0;
-            for (CropDrop d : drops) total += d.weight;
+            // R8：total 改用 CropCfg.weightTotal（load 期预算），消除每次收获对 drops 的求和（O(n)→O(1)，对齐 R4）。
+            double total = cfg.weightTotal;
             if (total <= 0) return true;
             double r = rnd.nextDouble() * total;
             CropDrop picked = drops.get(drops.size() - 1);

@@ -304,3 +304,24 @@
 - **内容保真度深核**：gandi/yurenjie/hetun 主题脚本在 machines.yml(作物) vs consumables.yml(食物) 的**类型归属**是否与原脚本一致（r13 遗留，只证「有定义」未证「类型正确」）。
 - **潜伏（数据驱动，当前不触发，未改）**：`templateSlot`/workbench `click` 槽位超出菜单尺寸的潜在越界；linked 机器 outSlot 与 inputSlot 重叠。需畸形配置才触发。
 - **代码层审查趋近饱和**：r1–r14 已逐文件覆盖 ~40 Java 文件 + 行为数据 + 内容解析 + 机器 Loader。剩余价值主要在**实机加载验证**（需服务端）与**内容作者补全**（2 个未定义 id、items.yml 配方数据、主题脚本类型归属）。
+
+## 第 15 轮（2026-08-05）：脚本类型派发保真度 + 反模式回归扫描（验证轮）
+
+> 本轮核验「脚本名 → Java 行为」的**类型派发保真度**（端口内部一致性 + 与原脚本行为一致性），并对 `setAmount`/`.get(0)` 反模式做回归扫描，确认 r11/r12 改动未引入回归。**验证轮：无缺陷、无代码改动**。
+
+### 复查确认（本轮无问题项——附证据）
+- **端口内部派发自洽**：
+  - machines.yml 引用 **142 脚本** → 全部在 `crops.yml`（142 键）→ 全派发为 CropBlock（正确作物）；**无一个误派发为食物、无无定义降级**。
+  - items.yml 引用 **67 脚本** → 全部在 `consumables.yml`/特殊 → 全派发为 ConsumableItem；**无误落 crops、无无定义、无歧义**。
+  - **无任何脚本同时存在于 crops.yml 与 consumables.yml** → 派发无歧义（crops 优先规则永不触发冲突）。
+- **与原脚本行为一致（主题脚本抽核）**：逐一判定原 `scripts/gandi|yurenjie|hetun/*.js` 的行为（WT_setupCrop=作物 / onUse·WT_eatConsumable=食物 / onEat / 特殊），核对端口归类：
+  - 3 个 CROP（`gandi/wujinzuowu`、`yurenjie/dptt`、`yurenjie/juduguo`）→ 均 crops.yml + machines.yml 引用 ✓
+  - 2 个 onEat 食物（`gandi/yhniupai`、`gandi/yhniurou`）→ 均 consumables.yml + foods.yml 引用（经 `foodOnEat` 应用）✓
+  - 其余 gandi/luoji·wujin、hetun/hetunjingyou、yurenjie/{bingdong,du,du0,du114514,du2,du3,fumojinmls,jindmls,shelingshu,zhaohuo} 原为 FOOD → 均 consumables.yml ✓
+  - `yurenjie/buyunping` 原为特殊（捕云瓶）→ SpecialItems.CloudBottleItem ✓
+- **反模式回归扫描（确认 r2/r4 收敛仍成立）**：
+  - `setAmount(` 全插件仅 5 处：`BlockDrops:51`/`Read:60`/`FishingListener:81` 均作用于**新建/克隆堆**（非玩家槽），`Stacks:37,47` 为带「到 0 清空」的消耗助手。**玩家背包消耗点仍全部收敛到 `Stacks.consumeOne*`，无幽灵物品回归**。
+  - `.get(0)` 全插件 **0 命中**，无 AIOOBE 风险。
+
+### 结论
+脚本类型派发（crop/food/onEat/special）经「内部自洽 + 原脚本行为比对 + 反模式回归」三重核验**忠实且无歧义**。代码层与派发层静态审查均已饱和。

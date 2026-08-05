@@ -344,3 +344,25 @@
 
 ### 阶段性更新（r1–r16）
 - 累计 **17 处修复**。本轮表明即便经多轮验证，**顶层加载编排**这类「单点失败波及全局」的路径仍值得专门核查——发现了 r4 故障隔离声明的两处遗漏。后续仍可继续覆盖未深核的 loader/数据维度，但产出会逐步从「代码缺陷」转向「内容数据校验」。
+
+## 第 17 轮（2026-08-05）：奖励/掉落与食物系统逻辑正确性
+
+> 本轮覆盖高频玩家路径：mob 死亡掉落（刷怪场高频）与食物进食。发现并修复 release note 记录的「foods nutrition/onEat」已知差距（**~168 个饮品不可食用**）。
+
+### 已修复
+
+| # | 严重度 | 位置 | 缺陷 | 后果 | 修复 / commit |
+|---|---|---|---|---|---|
+| 18 | 🔴 功能失效 | `FoodHelper.apply` | `nutrition<=0` 时直接 `return true` 不应用 FoodComponent | foods.yml 中 **~168 个饮品/汁**（gz1/gz2/fmjpgz/gandi·yhniupai/yhniurou/yurenjie·du2 等 `kind:eat` 脚本）缺 nutrition → 无 FoodComponent → **不可食用** → `PlayerItemConsumeEvent` 永不触发 → onEat 恢复/效果全部失效（仅 20 个 `rou` 烤肉有 nutrition 正常） | `nutrition<=0` 时改应用 `FoodComponent(0, 0, canAlwaysEat=true)` 仅保证可食以触发 onEat，恢复值由脚本 `opts.food/saturation` 提供；`nutrition>0` 路径不变 — `53eb101` |
+
+> 修复方案经用户确认为「脚本提供恢复」（release note 该已知差距的定夺）。规模核实：foods.yml 188 个带 script 食物中，gz2×158/gz1×6/fmjpgz×1/gandi×2/yurenjie·du2×1 缺 nutrition（共 ~168），均 `kind:eat`；20 个 `rou` 烤肉有 nutrition。
+
+### 复查确认（本轮无问题项——附证据）
+- **mob_drops chance 无小数截断**：mob_drops.yml 全部 chance 值为整数（1/3/4/5/8/10/15/16/20/25/30/35/40/42/45/50/55/60/65/70/80/90），`MobDropsLoader.getInt("chance",0)` 解析正确；`chance>0` 守卫合理（chance=0 的掉落本就不应触发）。`MobDropListener.nextInt(100)<chance` 整数百分比语义一致。
+- **mob_drops id 对齐**：`MobDropsLoader` 用 effId（`id_alias` 优先）记录、`MobDropListener` 按 `getById(effId)` 取物，两端一致（r2 已修 9 个 id_alias 不触发问题）。
+- **mob_drops 按实体类型索引**：`Map<实体类型,List<Drop>>`，`onDeath` 直接 `get(type)` 查表 O(该类型)，刷怪塔高频死亡场景无线性扫描开销（r5 优化）。
+
+### 待办（后续轮次）
+- **实机验证 #18**：`FoodComponent(nutrition=0, canAlwaysEat=true)` 在 Paper 1.21.11 是否确可食（canAlwaysEat 通常允许 0 营养食物），需真实服务端确认；若不可食则回退为「默认营养 1」方案。
+- **版本号**：r11–r17 累计 18 处修复，建议审查周期结束后统一升版并写 release note（当前仍为 `1.8.2-standalone` 基线）。
+- 内容保真度/实机加载验证（需服务端）。

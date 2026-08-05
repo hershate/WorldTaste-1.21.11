@@ -605,3 +605,15 @@
 
 ### 阶段状态
 累计 **22 处 bug 修复 + 1 处死状态清理 + 33 轮核查**，版本 `1.8.3-standalone`。
+
+## 第 34 轮（2026-08-05）：1.8.3-standalone jar 最终交付核验（验证轮）
+
+> 对最终产物 `WorldTaste-1.8.3-standalone.jar` 做交付级内容核验。**验证轮：无缺陷、无代码改动**。
+
+### 复查确认（本轮无问题项——附证据）
+- **jar 内 plugin.yml 版本串** = `1.8.3-standalone`，name/main/api-version/depend/softdepend 齐全。
+- **17 个 .yml 完整入 jar**：13 内容(foods/geo_resources/groups/items/linked_recipe_machines/machines/mb_machines/menus/mob_drops/recipe_machines/recipe_types/template_machines/workbenches) + plugin.yml + data/{consumables,crops,fishing}.yml。
+- **关键修复类全部打进 jar**：BlockDrops(r12)、CropBlock(r11)、FishingListener(r23)、FoodHelper(r17/r24)、GroupLoader+Setup(r16)、WTRecipeMachine+WTTemplateMachine(r30)、ConsumableItem。
+
+### 最终声明（r1–r34）
+静态代码审查与 RSC 原版对照**全面完成**：全 ~40 Java 文件 + 全机器类型 RSC 对照 + 数据完整性 + 交互/重入/级联 + 构建打包。**累计 22 处 bug 修复 + 1 死状态清理**，全部纳入通过编译的 `WorldTaste-1.8.3-standalone.jar`。剩余工作明确为**实机加载/运行验证**（[server-verification-checklist.md](server-verification-checklist.md)，需真实服务端）与**内容作者补全**（2 个未定义 id）。静态层面无已知遗留代码缺陷。

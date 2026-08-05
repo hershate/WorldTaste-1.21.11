@@ -83,28 +83,48 @@ public final class Behaviors {
 
     private static void loadCrops() {
         YamlConfiguration y = Yaml.loadResource(WT.plugin, "data/crops.yml");
+        int skip = 0;
         for (String name : y.getKeys(false)) {
             ConfigurationSection s = y.getConfigurationSection(name);
             if (s == null) continue;
-            CropCfg c = new CropCfg();
-            Material m = Material.matchMaterial(s.getString("material", "WHEAT"));
-            c.material = m != null ? m : Material.WHEAT;
-            c.maxAge = s.getInt("maxAge", 7);
-            c.growMs = s.getLong("growMs", 120000L);
-            c.stages = s.getString("stages", "small");
-            if (s.isList("drops")) {
-                for (Map<?, ?> mm : s.getMapList("drops")) {
-                    c.drops.add(new CropDrop((String) mm.get("id"), ((Number) mm.get("chance")).doubleValue(), 0));
+            try {
+                CropCfg c = new CropCfg();
+                Material m = Material.matchMaterial(s.getString("material", "WHEAT"));
+                c.material = m != null ? m : Material.WHEAT;
+                c.maxAge = s.getInt("maxAge", 7);
+                c.growMs = s.getLong("growMs", 120000L);
+                c.stages = s.getString("stages", "small");
+                if (s.isList("drops")) {
+                    for (Map<?, ?> mm : s.getMapList("drops")) {
+                        // 显式校验类型：缺 chance 或非数值曾导致 NPE/CCE 逃出 loadData、
+                        // 连累其后的全部加载(items/foods/machines…)被 onEnable 顶层 catch 跳过。
+                        Object id = mm.get("id");
+                        Object ch = mm.get("chance");
+                        if (id instanceof String && ch instanceof Number) {
+                            c.drops.add(new CropDrop((String) id, ((Number) ch).doubleValue(), 0));
+                        } else {
+                            WT.log("crop " + name + " 的 drops 项缺少 id/chance，跳过该项");
+                        }
+                    }
+                } else if (s.isList("weightedDrops")) {
+                    for (Map<?, ?> mm : s.getMapList("weightedDrops")) {
+                        Object id = mm.get("id");
+                        Object w = mm.get("weight");
+                        if (id instanceof String && w instanceof Number) {
+                            c.drops.add(new CropDrop((String) id, 0, ((Number) w).doubleValue()));
+                        } else {
+                            WT.log("crop " + name + " 的 weightedDrops 项缺少 id/weight，跳过该项");
+                        }
+                    }
+                    c.weighted = true;
                 }
-            } else if (s.isList("weightedDrops")) {
-                for (Map<?, ?> mm : s.getMapList("weightedDrops")) {
-                    c.drops.add(new CropDrop((String) mm.get("id"), 0, ((Number) mm.get("weight")).doubleValue()));
-                }
-                c.weighted = true;
+                crops.put(name, c);
+            } catch (Exception e) {
+                WT.log("crop " + name + " 解析失败，跳过: " + e);
+                skip++;
             }
-            crops.put(name, c);
         }
-        WT.plugin.getLogger().info("行为数据: crops=" + crops.size());
+        WT.plugin.getLogger().info("行为数据: crops=" + crops.size() + (skip > 0 ? ", 跳过 " + skip : ""));
     }
 
     /** 食物消耗参数（对应原 WT_eatConsumable opts，并扩展覆盖独立脚本的空气/冻结/药水等）。 */

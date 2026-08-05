@@ -29,7 +29,7 @@ public final class FishingListener implements Listener {
     public static final FishingListener INSTANCE = new FishingListener();
 
     private static String rodId = "WT_BAIWEIDIAOGAN";
-    private static final Map<String, List<Drop>> baits = new HashMap<>();
+    private static final Map<String, Bait> baits = new HashMap<>();
 
     private FishingListener() {}
 
@@ -48,10 +48,10 @@ public final class FishingListener implements Listener {
                         drops.add(new Drop((String) id, ((Number) w).intValue()));
                     }
                 }
-                baits.put(bait, drops);
+                baits.put(bait, new Bait(drops));
             }
         }
-        int total = baits.values().stream().mapToInt(List::size).sum();
+        int total = baits.values().stream().mapToInt(b -> b.drops.size()).sum();
         WT.plugin.getLogger().info("行为数据: fishing rod=" + rodId + " baits=" + baits.size() + " drops=" + total);
     }
 
@@ -63,11 +63,11 @@ public final class FishingListener implements Listener {
         if (rod == null || !rod.getId().equals(rodId)) return;
         SlimefunItem bait = SlimefunItem.getByItem(p.getInventory().getItemInOffHand());
         if (bait == null) return;
-        List<Drop> drops = baits.get(bait.getId());
-        if (drops == null) return;
+        Bait table = baits.get(bait.getId());
+        if (table == null) return;
 
         // 先选并解析掉落物；无法解析（如未装对应附属）时不取消事件、不扣饵、保留原渔获
-        Drop d = select(drops);
+        Drop d = select(table);
         if (d == null) return;
         ItemStack stack = resolve(d.id);
         if (stack == null) return;
@@ -92,16 +92,15 @@ public final class FishingListener implements Listener {
         p.playSound(p.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1f, 1f);
     }
 
-    private static Drop select(List<Drop> drops) {
-        int total = 0;
-        for (Drop d : drops) total += d.weight;
-        if (total <= 0) return null;
-        double r = Math.random() * total;
-        for (Drop d : drops) {
+    /** 按权重随机选 1 个掉落。total 在 load 期预算（消除每次钓获的求和）。 */
+    private static Drop select(Bait table) {
+        if (table.total <= 0) return null;
+        double r = Math.random() * table.total;
+        for (Drop d : table.drops) {
             r -= d.weight;
             if (r <= 0) return d;
         }
-        return drops.get(drops.size() - 1);
+        return table.drops.get(table.drops.size() - 1);
     }
 
     private static ItemStack resolve(String id) {
@@ -122,5 +121,17 @@ public final class FishingListener implements Listener {
         final String id;
         final int weight;
         Drop(String id, int weight) { this.id = id; this.weight = weight; }
+    }
+
+    /** 一个鱼饵的掉落表 + 预算权重总和（load 期一次计算，select 直接用，消除每次钓获的求和）。 */
+    private static final class Bait {
+        final List<Drop> drops;
+        final int total;
+        Bait(List<Drop> drops) {
+            this.drops = drops;
+            int t = 0;
+            for (Drop d : drops) t += d.weight;
+            this.total = t;
+        }
     }
 }

@@ -165,3 +165,19 @@
 
 ### 仍待
 - 实机加载验证；2 个未定义 id 由内容作者补全。
+
+## 第 8 轮（2026-08-05）：消耗品数据保真度核查（端口 vs 原 JS 脚本）
+
+**范围**：核对 `data/consumables.yml` 的行为参数是否忠实复刻原「独立脚本」(jiu/yan/zhongdu/xuejia 等) 的逻辑与数值。
+
+### 已修复
+
+| # | 严重度 | 位置 | 缺陷 | 后果 | 修复 / commit |
+|---|---|---|---|---|---|
+| 14 | 🟠 用户交互逻辑 | `ConsumableItem` 副手模型 + `xuejia` 数据 | 原 `xuejia.js` 要求副手**剪刀(SHEARS)**并消耗 1 把；端口仅 `consumeOffhand:true` 无工具类型，而代码只在 `offhandFlint && consumeOffhand` 时校验/消耗 → xuejia 的 consumeOffhand 为**死配置** | xuejia 既不校验剪刀、也不消耗副手（交互与原版不符；玩家白嫖剪刀成本） | 将 `offhandFlint(boolean)` 泛化为 `offhandTool(Material)`，支持任意工具；yan→FLINT_AND_STEEL、xuejia→SHEARS，consumeOffhand 统一在其下生效 — `5779a92` |
+
+### 复查确认（端口保真度，无问题项）
+- **`jiu`**：randomFood 1-12、exhaustion -2、NAUSEA(1000,1)、ABSORPTION(1200,2)、requireHungry、副手粘液禁用 —— 与 `jiu.js` 完全一致。
+- **`zhongdu`**：food/saturation +17、exhaustion -1.7、POISON(1000,6)、UNLUCK(1000,6) —— 与 `zhongdu.js` 一致。
+- **`yan`**：ABSORPTION(1400,2)+DOLPHINS_GRACE(1400,1)+HUNGER(800,1)+打火石校验消耗 —— 与 `yan.js` 一致。
+- **已知简化（非 bug）**：`ConsumableItem` 对所有消耗品播放固定 `ENTITY_STRIDER_EAT` 音效，丢失原脚本的 per-script 音效（jiu 饮用声/yan 打火石声）——属听觉层面的有损简化，如需可后续加 `sound` 字段。

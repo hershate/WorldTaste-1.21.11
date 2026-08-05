@@ -372,16 +372,23 @@ public class WTRecipeMachine extends AContainer implements RecipeDisplayItem {
         return m.recipe;
     }
 
+    /** 指南展示配方缓存。recipes 在构造后不变，展示列表亦不变，首次调用预算并缓存（同 R2「提升不变量」原则：
+     *  避免每次打开指南都 new ArrayList + 重建）。 */
+    private List<ItemStack> displayRecipesCache;
+
     @Override
     public List<ItemStack> getDisplayRecipes() {
+        if (displayRecipesCache != null) return displayRecipesCache;
         List<ItemStack> out = new ArrayList<>();
-        if (hideAll) return out;
-        for (WTRecipe r : recipes) {
-            ItemStack[] in = r.getInput();
-            ItemStack[] res = r.getOutput();
-            out.add(in.length > 0 && in[0] != null ? in[0] : new ItemStack(Material.BARRIER));
-            out.add(res.length > 0 ? res[0] : new ItemStack(Material.BARRIER));
+        if (!hideAll) {
+            for (WTRecipe r : recipes) {
+                ItemStack[] in = r.getInput();
+                ItemStack[] res = r.getOutput();
+                out.add(in.length > 0 && in[0] != null ? in[0] : new ItemStack(Material.BARRIER));
+                out.add(res.length > 0 ? res[0] : new ItemStack(Material.BARRIER));
+            }
         }
+        displayRecipesCache = out;
         return out;
     }
 }

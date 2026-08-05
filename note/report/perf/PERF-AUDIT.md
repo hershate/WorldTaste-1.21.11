@@ -23,6 +23,7 @@
 | 轮 | 优化点 | 生产改动 | 基准收益（代表值） | 零回归 | commit |
 |---|---|---|---|---|---|
 | R1 | 机器配方匹配热路径 | `WTRecipe` 惰性 `inputSfId` + `WTRecipeMachine` 纯-SF 闸门 + SF-id 预筛 | 纯-SF 机器 **7.5~26×**（isItemSimilar 调用 31→0/2、200→0/2） | ✅ 非-SF 机器 1.00×（闸门关闭） | （见下） |
+| R2 | findMatch 每 tick 分配消除 | `WTRecipeMachine` 把不变量 `posOf`（每 tick `new HashMap`+Integer 装箱）提至构造期 `int[] posBySlot` | 绑定槽机器 **~2.1×**、自由槽机器 **~17×**（白建 HashMap 消除） | ✅ 行为不变（posOf 仅依赖 inputSlots） | （见下） |
 
 ---
 
@@ -89,11 +90,44 @@
 - 原/混合机器的线性扫描仍为 O(配方数) 廉价类型短路——若需进一步降常数可考虑 Material 索引（R 候选）。
 - 其它热路径：`pushOutputs` 分配抖动、`CropBlock.tick`、加载期 `Read.item` 双趟、MobDrop/Fishing 等（见本文件「计划」）。
 
+---
+
+## 第 2 轮（2026-08-05）：findMatch 每 tick 分配消除（posOf 提升为不变量）
+
+**范围**：与 R1 同一热路径（`WTRecipeMachine.findMatch`），但**从分配/装箱角度**切入（复合优化）。输出阻塞机器每 tick 触发 findMatch，其首部每调用 `new HashMap<Integer,Integer>` + `slotCount` 次 `put`（Integer 装箱 + Node 分配）。
+
+### 优化设计
+
+`posOf`（输入槽 GUI 索引 → inputSlots 数组位置）**仅依赖 `inputSlots`（final 字段）**，是机器级不变量。R2 前
+每 tick 重建；R2 提至构造期一次预算为 `int[] posBySlot`（54 覆盖整个背包尺寸，-1=非输入槽），findMatch 内
+仅做 `posBySlot[bound]` 直接索引。
+
+### 安全性 / 保真度（红线核查）
+
+- **行为不变**：`posBySlot[bound]` 与原 `posOf.get(bound)` 在「bound ∈ inputSlots → 位置」「bound ∉ → -1/null → failed」
+  上完全等价；越界 bound（≥54 或 <0）回退 -1 → failed，与原 `posOf.get==null` 一致。
+- 不影响 R1 的 SF-id 预筛、`stillValid` 复校、first-match/distinct 语义。
+- 无新分配、无并发变化（构造期填充，tick 主线程只读）。
+
+### 基准结果（`PosOfBench`，per findMatch 调用）
+
+| 用例 | 旧（R2 前） | 新（R2） | 加速 |
+|---|---|---|---|
+| 绑定槽机器（build+lookup） | ~58 ns | ~27 ns（仅 lookup） | **~2.1×** |
+| 自由槽机器（build，从不查） | ~51 ns | ~3 ns（摊销≈0） | **~17×** |
+
+> 解读：自由槽机器（recipe_machines 多数，inputs 的 `slot` 为自由）旧路径**每 tick 白建 HashMap**（从不查询，
+> 因 `bound=-1` 走自由扫描分支）——纯分配浪费；新路径彻底消除。绑定槽机器（linked/workbench）亦省去 per-call
+> 重建并改用数组索引。对高负载（多台输出阻塞机器 × 10Hz）显著降低 GC 压力。
+
+### 验证
+- `./gradlew compileJava` 通过。基准 `PosOfBench` 通过。
+
 ## 计划（多轮优化点，逐轮推进直至闭合）
 
 - [x] **R1** 机器配方匹配（SF-id 预筛 + 闸门）—— **完成**
-- [ ] **R2** 配方产出推送 `pushOutputs`（`ArrayList`/`chooseOne` 分配抖动）
-- [ ] **R3** 作物 `CropBlock.tick`（生长公式 / 状态结构 / `System.currentTimeMillis` 频次）
+- [x] **R2** findMatch 每 tick 分配消除（posOf 提升为不变量 int[]）—— **完成**
+- [ ] **R3** 作物 `CropBlock.tick`（生长公式预算 / 状态结构 / Location 分配）
 - [ ] **R4** 加载期 `Read.item` / `preloadDisplays` 双趟（启动 1~3 分钟）
 - [ ] **R5** MobDrop `getById` 缓存 / Fishing 权重 `total` 预算
 - [ ] **R6+** 复合优化与收尾（`getDisplayRecipes` 缓存、menu 构建、行为数据结构等），直至闭合

@@ -26,6 +26,7 @@
 | R2 | findMatch 每 tick 分配消除 | `WTRecipeMachine` 把不变量 `posOf`（每 tick `new HashMap`+Integer 装箱）提至构造期 `int[] posBySlot` | 绑定槽机器 **~2.1×**、自由槽机器 **~17×**（白建 HashMap 消除） | ✅ 行为不变（posOf 仅依赖 inputSlots） | （见下） |
 | R3 | CropBlock.tick（验证轮 + 微优） | `CropBlock` 预算 `growMsSteps`（不变量，避免每 tick 8 次乘法） | 微（生长作物每 tick 省 8 乘法）；**Location 分配消除方案经实测为 CPU 劣化（0.54×）已拒绝** | ✅ 行为逐字一致（double 阈值保精确语义） | （见下） |
 | R4 | 事件驱动路径 | `FishingListener` 把权重 `total` 提至 load 期 `Bait.total`（每次钓获求和→O(1)）；核查确认 `getById` 已 O(1) → MobDrop 缓存不必要 | Fishing select **~1.7×**（138→82 ns；余为加权遍历） | ✅ 行为不变（total 预算、RNG 不变） | （见下） |
+| R5 | 不变量展示列表 + 闭合 | `WTRecipeMachine.getDisplayRecipes` 缓存展示列表（同 R2「提升不变量」原则）；评估 pushOutputs 等低频路径不予改 | getDisplayRecipes **~90×**/次（269→3 ns；指南低频，绝对小） | ✅ recipes 不变，缓存安全 | （见下） |
 
 ---
 
@@ -183,12 +184,47 @@
 ### 验证
 - `./gradlew compileJava` 通过。
 
+---
+
+## 第 5 轮（2026-08-06）：不变量展示列表缓存 + 闭合判定
+
+**范围**：剩余低频路径的评估与收尾。
+
+### 已落地：`getDisplayRecipes` 缓存（提升不变量，同 R2 原则）
+- 核查调用点：`getDisplayRecipes` 仅由指南（[SurvivalSlimefunGuide.java:675](../../../REF/RykenSlimeCustomizer-1.21.11/REF/Slimefun4.1/src/main/java/io/github/thebusybiscuit/slimefun4/implementation/guide/SurvivalSlimefunGuide.java)）调用，
+  **不在 AContainer 的 tick 循环内**（AContainer:305 仅为方法定义）。recipes 构造后不变 → 展示列表亦不变。
+- [WTRecipeMachine.java](../../../plugin/src/main/java/com/haiman233/worldtaste/machines/WTRecipeMachine.java)：首次调用预算展示列表并缓存（`displayRecipesCache`），后续直接返回。
+- **基准**（`DisplayBench`，78 配方=156 元素列表）：旧 269 ns（每次重建）→ 新 3 ns（缓存返回）= **~90×/次**。
+- **诚实声明**：指南为玩家主动打开（低频），绝对收益小；此为正确的「不重复构建不变量」（与 R2 同源），零风险。
+
+### 评估后【未改】（低频，无 worthwhile 收益）
+- **`pushOutputs`**：仅在配方合成完成时调用（每机器每数秒一次，非 tick）；`ArrayList passed` 小、`clone()` 必要（产出堆独立），
+  无可消除的分配。不改。
+- **`FoodConsumeListener` / `BlockBreak`（CropListener/BlockDrops）**：玩家/挖掘事件驱动，频率受玩家行为而非 tick 上限约束，
+  当前实现（加权/概率掷一次、按实体类型索引）已精简。不改。
+
+## 闭合判定（R1–R5 收敛）
+
+| 维度 | 状态 |
+|---|---|
+| per-tick 热路径 | `findMatch`（R1/R2 大幅优化）、`CropBlock`（R3 验证已精简、Location 方案经实测劣化已拒）—— **覆盖** |
+| 事件驱动高频路径 | Fishing（R4 total 预算）、MobDrop（getById 已 O(1)）—— **覆盖** |
+| 低频/启动路径 | getDisplayRecipes（R5 缓存）、pushOutputs/FoodConsume/BlockBreak（评估不改）、加载期头颅解码（单趟 Bukkit 内部）—— **评估完毕** |
+
+**结论**：所有可静态分析+微基准化的热路径均已覆盖。R3/R4/R5 连续表明优化空间趋于饱和（per-tick 路径已优化或验证无头寸；
+事件/低频路径要么已 O(1)/已预算、要么频率受限收益微小）。**静态性能优化闭合。**
+
+### 仍待（非静态优化可解）
+- **实机 TPS 验证**：绝对性能（高负载 TPS、GC 表现）需真实 Paper 1.21.11 + Slimefun4.1 + 美食家/异域花园 服务端实测
+  （本环境无法运行服务端，见 [../../server-verification-checklist.md](../../server-verification-checklist.md)）。微基准的相对加速比可外推方向，但不等于绝对 TPS。
+- 若实机 profile 显示新热点（如 cargo 自动化、特定机器配方表），可再开轮（届时需服务端数据，非静态可定夺）。
+
 ## 计划（多轮优化点，逐轮推进直至闭合）
 
 - [x] **R1** 机器配方匹配（SF-id 预筛 + 闸门）—— **完成**
 - [x] **R2** findMatch 每 tick 分配消除（posOf 提升为不变量 int[]）—— **完成**
 - [x] **R3** CropBlock.tick（验证轮：Location 分配消除经实测劣化已拒绝；落地 growMsSteps 不变量预算）—— **完成**
 - [x] **R4** 事件驱动路径（Fishing total 预算；getById O(1) → MobDrop 缓存不必要）—— **完成**
-- [ ] **R5** 收尾：`getDisplayRecipes` / `pushOutputs` 分配抖动评估 + 闭合判定
+- [x] **R5** getDisplayRecipes 不变量缓存 + 低频路径评估 + **闭合判定** —— **完成（静态优化闭合）**
 
 > 闭合判据：可优化热路径均已覆盖，且新增轮次连续无收益（参照 security-audit 的收敛模式）。

@@ -1,5 +1,7 @@
 package com.haiman233.worldtaste.items;
 
+import com.haiman233.worldtaste.WT;
+import com.haiman233.worldtaste.util.Stacks;
 import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
@@ -48,12 +50,18 @@ public final class SpecialItems {
                 }
                 ItemStack main = p.getInventory().getItemInMainHand();
                 if (main == null || main.getAmount() <= 0) return;
-                main.setAmount(main.getAmount() - 1);
 
                 boolean clear = !p.getWorld().hasStorm() && !p.getWorld().isThundering();
                 String dropId = clear ? "WT_CLOUD" : "WT_THUNDERCLOUD";
                 SlimefunItem sf = SlimefunItem.getById(dropId);
-                if (sf != null) p.getWorld().dropItemNaturally(l, sf.getItem().clone());
+                if (sf == null) {
+                    // 掉落物未注册：不消耗瓶子（避免吞物品），仅记录并提示
+                    WT.log("捕云瓶掉落物未注册: " + dropId);
+                    return;
+                }
+                // 到 0 必须清空主手槽位，避免 0 数量幽灵物品残留
+                Stacks.consumeOneInMainHand(p.getInventory());
+                p.getWorld().dropItemNaturally(l, sf.getItem().clone());
                 p.sendMessage("§b成功捕获了" + (clear ? "云朵" : "乌云") + "！");
                 p.getWorld().playSound(l, Sound.ENTITY_PLAYER_SPLASH, 1f, 1f);
             };
@@ -74,7 +82,8 @@ public final class SpecialItems {
                 }
                 ItemStack main = p.getInventory().getItemInMainHand();
                 if (main == null || main.getAmount() <= 0) return;
-                main.setAmount(main.getAmount() - 1);
+                // 到 0 必须清空主手槽位，避免 0 数量幽灵物品残留
+                Stacks.consumeOneInMainHand(p.getInventory());
                 Block target = p.getTargetBlock(null, 5);
                 Location loc = target.getLocation().add(0, 1, 0);
                 loc.getWorld().spawnEntity(loc, EntityType.GIANT);

@@ -533,3 +533,15 @@
 
 ### 阶段状态
 累计 **21 处修复 + 28 轮核查**。多方块机（onInteract/isCraftable/dispenserFaceGet）已与 RSC 全面对照：核心逻辑忠实，边界端口更优。RSC 源码对照方向已覆盖 FoodHelper/readItem/chooseOne/noConsume/匹配/多方块。
+
+## 第 29 轮（2026-08-05）：linked 机器输出对比 RSC（验证轮）
+
+> 把端口 linked 机器输出（`WTRecipe.pushOutputs` 的 outSlots 绑定）与 RSC `BlockMenuUtil.pushItem(LinkedOutput)` 对照。**验证轮：分歧潜伏不显现、无代码改动**。
+
+### 复查确认（本轮无问题项——附证据）
+- **结构差异（潜伏）**：RSC `pushItem(LinkedOutput)` 为两独立循环（linked 绑定槽 + free 自由槽），`chooseOne` 在**每循环内各 break 一次**（理论上可产 1 linked + 1 free）；端口 `WTRecipe.pushOutputs` 为单循环，`chooseOne` 取 1 个总幸存者。**仅当 linked 配方同时有 chooseOne + 混合绑定/自由输出时显现**。
+- **数据核查**：`linked_recipe_machines.yml` 中 **chooseOne 配方数 = 0** → 该分歧**不显现**。
+- **非-chooseOne 的 linked 输出**：端口按 `outSlots[i]` 绑定槽 pushItem（leftover 回退 freeSlots）、`-1` 走自由槽，与 RSC linked+free 语义等价（无 chooseOne 时两循环均无 break 限制，逐一产出）。
+
+### 阶段状态
+累计 **21 处修复 + 29 轮核查**。RSC 源码对照已覆盖主要共享逻辑，近期多为「忠实」或「潜伏不显现/有益偏离」。该方向产出趋稳。

@@ -518,3 +518,18 @@
 
 ### 阶段状态
 累计 **21 处修复 + 27 轮核查**。机器配方层（chooseOne/chance/noConsume/匹配）已与 RSC 全面对照：chooseOne 已对齐(r26)，noConsume/匹配本就一致，fitAll 为有益偏离(保留)。
+
+## 第 28 轮（2026-08-05）：多方块机对比 RSC 源码（验证轮 + 澄清 r3 疑点）
+
+> 把端口 [WTMultiBlockMachine](../plugin/src/main/java/com/haiman233/worldtaste/machines/WTMultiBlockMachine.java) 与 RSC [CustomMultiBlockMachine](../REF/RykenSlimeCustomizer-1.21.11/src/main/java/org/lins/mmmjjkx/rykenslimefuncustomizer/objects/customs/machine/CustomMultiBlockMachine.java) 逐行对照。**验证轮：无缺陷、无代码改动**。
+
+### 复查确认（本轮无问题项——附证据）
+- **`onInteract` 忠实**：RSC 对首个 `isCraftable` 配方即 `return`（无论合成成功/取消/满），端口各分支 `return` 行为等价（澄清 r14 的「return vs continue」——与 RSC 一致）。
+- **`isCraftable` 完全一致**：双重 `isItemSimilar(checkLore=true 失败再试 false, true, false)`，端口与 RSC:177-187 逐字等价。
+- **`createVirtualInventory` 一致**：clone + `consumeItem(stack, true)` 模拟移除输入，端口与 RSC:161-175 等价。
+- **`dispenserFaceGet` 面映射忠实、边界更稳健**：
+  - 面映射（center-1→EAST、center+1→WEST、center±3→UP/DOWN）**与 RSC 完全一致** → **澄清 r3「EAST/WEST 翻转疑似」**：端口与 RSC 行为相同，翻转若存在是 RSC 设计本身（非端口 bug），几何正确性需实机确认（仍是清单待办）。
+  - 边界：端口 UP `center-3>=0`(RSC `>0`)、EAST 有 `>=0` 守卫(RSC 无守卫，work=1/center=0 时 is[-1] AIOOBE)、DOWN `center+3<9`(RSC `<8`)。端口**修正了 RSC 的潜在 off-by-one/AIOOBE**，更稳健，不回退。
+
+### 阶段状态
+累计 **21 处修复 + 28 轮核查**。多方块机（onInteract/isCraftable/dispenserFaceGet）已与 RSC 全面对照：核心逻辑忠实，边界端口更优。RSC 源码对照方向已覆盖 FoodHelper/readItem/chooseOne/noConsume/匹配/多方块。

@@ -260,3 +260,25 @@
 - **巨人丸 `spawnEntity(GIANT)` 绕过领地保护**（r2/r11 todo）：评估接入 `Slimefun.getProtectionManager()` 校验目标位置后再生成。
 - **`ScriptItemFactory` / `AttributeItems` 属性分派**（radiation/soulbound/anti_wither/piglin/energy_capacity/register.conditions）的专门核查（下一轮候选）。
 - **高负载机器配方匹配性能**实测（需实机）。
+
+## 第 13 轮（2026-08-05）：属性分派层 + 脚本覆盖闭环核查（验证轮）
+
+> 本轮核查「YAML 属性 → Slimefun 物品子类」的分派信任边界（[ScriptItemFactory](../plugin/src/main/java/com/haiman233/worldtaste/items/ScriptItemFactory.java)、[AttributeItems](../plugin/src/main/java/com/haiman233/worldtaste/items/AttributeItems.java)）与「引用脚本 → Java 行为定义」的覆盖闭环。**为验证轮：经实证无缺陷、无代码改动**，仅固化结论以防后续误改。
+
+### 复查确认（本轮无问题项——附证据）
+
+- **单属性优先链无属性丢失**：原 RSC 用 ByteBuddy 动态叠加多属性接口，本插件改为优先链（energy→script(crop/consumable/special)→rad→soulbound→antiWither→piglin→!placeable→WTItem），每物品只取一个属性类。逐一核对 items.yml **全部 11 处**属性项的分派结果均正确：
+  - piglin×2（placeable:false）→ PiglinBarterItem(NotPlaceable)✓；radiation+script×5 → RadioactiveConsumable（radiation 保留 + ConsumableItem 自带 NotPlaceable）✓；anti_wither(placeable:true)→ WitherProofItem✓；soulbound(placeable:**true**)→ SoulboundItem✓；radiation(placeable:true,无 script)→ RadioactiveItem✓；energy_capacity(+script,忽略 script 对齐 RSC)→ EnergyItem✓。
+  - **数据中无任何物品同时具备 ≥2 个被分派属性** → 链中无属性被静默丢弃。唯一 soulbound 项显式 placeable:true，不存在「soulbound 误变可放置」。
+- **顶层属性键全部被处理**：提取 items.yml 全部顶层键 {recipe_type/item_group/item/placeable/recipe/script/register/drop_from/drop_chance/drop_amount/id_alias/radiation/vanilla/piglin_trade_chance/soulbound/glow/energy_capacity/anti_wither}（18 种），逐一对照插件读取点——**全部被处理，无静默忽略的属性键**。
+- **属性解析健壮**：`parseRadiation` 对非法枚举 try/catch→null；`piglinChance/energyCapacity` 走 `getInt`；`EnergyItem` 注册为 CAPACITOR（对齐 RSC energy_capacity 语义）。
+- **脚本覆盖闭环（逻辑闭合）**：items.yml/machines.yml 引用 **209 个去重 script**，对照 `consumables.yml(69 键) ∪ crops.yml(142 键) ∪ {yurenjie/buyunping, jurenwan}`——**全部命中**。初筛差出的 13 个（gandi/luoji、gandi/wujin、hetun/hetunjingyou、yurenjie/{bingdong,du,du0,du114514,du2,du3,fumojinmls,jindmls,shelingshu,zhaohuo}）经逐个 `grep` 核实**均在数据文件中定义**（名字带 `/` 的消耗品键，提取正则漏斜杠所致），非真缺口。**无引用脚本无定义 → 无静默行为丢失**。
+
+### 评估后【未改】的设计选择（附理由，避免后续误改）
+- **未为「未匹配 script」加注册期 warning**：虽能帮助内容作者发现 script 拼写错误/漏移植，但 foods 中 `kind:eat` 的 onEat 脚本经 `Behaviors.foodOnEat`（[FoodsLoader.java:55](../plugin/src/main/java/com/haiman233/worldtaste/load/FoodsLoader.java)）处理、`ScriptItemFactory` 不可见（其 `opts.use=false` 不走 ConsumableItem 分支），加 warning 会**对全部 onEat 食物误报**。权衡后保持静默回退（未匹配→按普通物品注册），不引入误报噪音。
+
+### 待办（后续轮次）
+- **内容保真度深核**：gandi/yurenjie/hetun 等主题脚本在 machines.yml(作物) vs consumables.yml(食物) 的**类型归属**是否与原脚本一致（本轮只证「有定义」，未证「类型正确」）。
+- **顶层 `glow:`（items.yml 仅 1 处）**：疑似 YAML 缩进错误（glow 应在 `item:` 段内；`Read.item` 仅读 item 段的 glow），该物品可能不发光。属内容数据小瑕疵，非代码 bug。
+- **巨人丸 `spawnEntity` 绕过领地保护**（r2/r11/r12 todo）。
+- **`recipe_machines/linked/template/workbench` 各 Loader 的槽位与配方解析**专门核查（下一轮候选）。

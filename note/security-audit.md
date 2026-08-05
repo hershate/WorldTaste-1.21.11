@@ -424,3 +424,15 @@
   - `WTWorkbench` 工艺按钮 → `return false`(阻断)+`craft()` ✓ —— 工艺槽是按钮非输入槽，玩家无法往里放/取物品，**不会吞物品**
   - 输入槽 → 无 handler（接受物品放置）✓
 - **排除的潜在缺陷**：若工艺/背景/输出槽返回值搞反（true=允许），玩家可把物品放入非输入槽，关闭菜单时这些槽内容不被 dropItems → 吞物品。经核实现实现正确，无此风险。
+
+## 第 22 轮（2026-08-05）：数据完整性（跨文件 id 冲突 + 极端值）+ cargo 自动化（验证轮）
+
+> 本轮做内容数据层的完整性扫描：跨文件顶层键重复（注册冲突）、数值越界（负 amount / chance>100 / 负 weight）、以及机器 cargo/漏斗自动化支持。**验证轮：无缺陷、无代码改动**。
+
+### 复查确认（本轮无问题项——附证据）
+- **无跨文件重复顶层键**：抽取 10 个内容文件全部顶层键交叉比对，**无任何 id 在多个文件重复定义** → 无「同 SF id 二次注册失败/覆盖」风险（r18 的 id_alias 变体冲突是另一类，已证互斥）。
+- **无数值越界**：全量扫描 `amount:`（无 ≤0）、`drop_chance/chance`（全部 ∈[0,100]，最大 90）、consumables/crops/fishing 的 `weight/chance`（无负值）。`MobDrops/BlockDrops` 的 `nextInt(100)<chance`、`CropBlock` 加权、`FishingListener.select` 在合法区间内行为正确。
+- **cargo/漏斗自动化支持正确**：`WTRecipeMachine` 继承 AContainer→InventoryBlock 默认 `getSlotsAccessedByItemTransport`（INSERT→inputSlots、WITHDRAW→outputSlots），`WTWorkbench` 显式覆盖同语义 → cargo 可正常入料/出料。工作台 tick 为空（手动点击合成），cargo 入料后需玩家点击 —— 符合设计，非 bug。cargo 在 Slimefun ticker 主线程执行，与机器 tick/craft 无竞态。
+
+### 阶段状态
+代码层（全文件）+ 数据派发层 + 数据完整性（id 冲突/脚本覆盖/recipe_type/极端值）+ 交互层（点击处理器/cargo）均已逐项核验清洁。累计 **18 处修复 + 22 轮核查**。静态层面高度饱和，后续预期仅验证结论。

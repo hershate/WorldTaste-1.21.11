@@ -411,3 +411,16 @@
 - **累计 18 处修复**，全部经 `./gradlew build` 验证编译并打入 jar。
 - 静态层面**无已知遗留代码缺陷**。剩余工作明确为**实机验证**，已整理为 [server-verification-checklist.md](server-verification-checklist.md)（含 r17 食物可食性重点验证、复制漏洞回归、级联隔离、高负载稳定性、对抗修改版客户端等）。
 - 建议审查循环**到此停止**（后续静态轮次无预期产出），转入实机验证阶段。
+
+## 第 21 轮（2026-08-05）：菜单点击处理器返回值语义核查（验证轮）
+
+> 用户重启 /loop 继续。本轮核查一个此前未验证的正确性要点：Slimefun `MenuClickHandler` 布尔返回值语义（误用会导致物品可放入非输入槽、关闭菜单时丢失）。**验证轮：无缺陷、无代码改动**。
+
+### 复查确认（本轮无问题项——附证据）
+- **返回值语义确认**（REF 源码）：[ChestMenuUtils](../REF/RykenSlimeCustomizer-1.21.11/REF/Slimefun4.1/src/main/java/io/github/thebusybiscuit/slimefun4/utils/ChestMenuUtils.java) 中 `CLICK_HANDLER`(背景)=(p,s,i,a)->false、`OUTPUT_HANDLER` 取出(cursor 空)返回 true / 放入返回 false。语义：**`false`=取消(阻断交互)，`true`=允许**。
+- **插件全部点击处理器用法正确**（grep 全量审计）：
+  - 装饰/背景/进度槽 → `getEmptyClickHandler`(false=阻断)✓
+  - 输出槽 → `getDefaultOutputHandler`（允许取出、阻断放入；且处理了 NUMBER_KEY/SWAP_OFFHAND 绕过光标直接放入输出槽的边界）✓
+  - `WTWorkbench` 工艺按钮 → `return false`(阻断)+`craft()` ✓ —— 工艺槽是按钮非输入槽，玩家无法往里放/取物品，**不会吞物品**
+  - 输入槽 → 无 handler（接受物品放置）✓
+- **排除的潜在缺陷**：若工艺/背景/输出槽返回值搞反（true=允许），玩家可把物品放入非输入槽，关闭菜单时这些槽内容不被 dropItems → 吞物品。经核实现实现正确，无此风险。

@@ -83,3 +83,28 @@
 - **GEO 资源绑定**：`GeoLoader` 将 `WT.preload`（无 SF id 绑定的展示堆）传给 `WTGeoResource.getItem()`。`WUWEI_GEOYAN` 在 items.yml 被引用 271 次作配方材料——经分析，配方 `need` 与 GEO 产出物**同源于 preload**，`isItemSimilar` 两端一致可匹配，内部自洽。改用绑定版反而会打破匹配，**保持现状**。
 - **`WTGeoResource` 注册**：`implements GEOResource`（独立 GEO 注册表，NamespacedKey 键），与 `ItemsLoader.register` 的 SlimefunItem 注册（Slimefun id）分属不同注册表，**无双重注册冲突**。
 - **`WTMultiBlockMachine.dispenserFaceGet`**：取样 `WUWEI_JYKRL`（work=5/SMOKER，DISPENSER 在 slot 8=center+3）返回 `DOWN`，`block.getRelative(DOWN)` 取下方发射器，**几何正确**；UP/DOWN 分支不受旋转影响。EAST/WEST 水平分支在实测配置中未见使用（dispenser 均为纵向），**保持现状**，待实机若出现横向 dispenser 再核。
+
+## 第 4 轮（2026-08-05）：NPE/强转反模式静态扫描
+
+**范围**：对全插件做 unchecked-cast / 自动拆箱 / `.get(0)` 反模式 grep 扫描；复查 `Colors`/`WTUnplaceableItem`/`Behaviors.loadConsumables`/`FishingListener.load`。重点：单条坏数据是否会导致级联失败。
+
+### 已修复
+
+| # | 严重度 | 位置 | 缺陷 | 后果 | 修复 / commit |
+|---|---|---|---|---|---|
+| 9 | 🟠 级联失败 | `Behaviors.loadCrops` | `drops`/`weightedDrops` 的 `((Number) chance/weight)`、`(String) id` 为**无保护强转**，且 `loadCrops` **无逐条 try/catch** | 单条作物数据缺 chance/weight 或类型错 → NPE/CCE 逃出 `loadData` → 被 `onEnable` 顶层 catch 兜住 → **其后 items/foods/machines 等全部跳过**（插件近乎空载启用） | `instanceof` 校验 + 逐条 try/catch，对齐其它 loader — `e0d4f1f` |
+| 10 | 🟡 强转 | `FishingListener.load` | 鱼饵掉落 `id != null` 仍对非字符串 id 触发 `(String)` CCE | YAML 中 id 为纯数字时 CCE（同上级联） | 收紧为 `id instanceof String` — `200c60b` |
+
+> 说明：`data/crops.yml` 当前数据规范（取样 id+chance 齐全），故 #9 为**潜伏缺陷**——修复确保未来一次数据编辑失误不再让整个插件近乎空载启用。
+
+### 复查确认（本轮无问题项）
+- **`Colors`**：null-safe；`{#RRGGBB}`/`&#RRGGBB`/`&` 码三路替换 + `translateAlternateColorCodes`，无异常路径。
+- **`WTUnplaceableItem`**：平凡 `SlimefunItem + NotPlaceable` 包装。
+- **`Behaviors.loadConsumables`**：全部使用类型安全的 Bukkit getter（getInt/getDouble/getBoolean/getString 类型不符返回默认），唯一强转（potions 循环）已 `instanceof` 守卫，**不会抛出**。
+- **反模式 grep 收敛**：修复后，全插件剩余 `((Number))`/`.intValue()` 命中（`Behaviors:74`、`FoodConsumeListener:27`、`ConsumableItem:65`）均处于 `instanceof`/`!=null` 守卫或安全 getter 之后，无未保护强转。
+
+### 阶段性结论（r1–r4）
+- Java 源码（~40 文件）已逐文件覆盖：机器/监听器运行期(r1)、物品分派/特殊物品(r2)、load 包(r3)、行为数据加载器+反模式扫描(r4)。
+- 玩家背包消耗点已全部收敛到 `Stacks.consumeOne*`（5 处幽灵物品修复）。
+- 所有内容/行为加载器现已统一具备逐条 try/catch 故障隔离。
+- 仍待：实机加载验证；`data/*.yml` 与内容 YAML 的跨文件一致性（如未定义 id 引用）；高负载下机器配方匹配性能（O(配方×槽位)/tick）评估。

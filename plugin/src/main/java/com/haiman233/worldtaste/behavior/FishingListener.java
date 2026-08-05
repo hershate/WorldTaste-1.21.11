@@ -81,9 +81,13 @@ public final class FishingListener implements Listener {
         stack.setAmount(1);
         Item ent = e.getHook().getWorld().dropItem(e.getHook().getLocation(), stack);
         ent.setPickupDelay(2);
-        Vector dir = p.getLocation().add(0, 1, 0).toVector()
-                .subtract(ent.getLocation().toVector()).normalize().multiply(1.7);
-        ent.setVelocity(dir);
+        Vector dir = p.getLocation().add(0, 1, 0).toVector().subtract(ent.getLocation().toVector());
+        // 玩家与落点几乎重合时 dir≈零向量，Vector.normalize() 会抛 IllegalArgumentException
+        // （即便罕见，高负载下大量钓鱼终会触发，且会污染事件处理器日志）。此时物品已在钩位置掉落、
+        // 玩家可拾取，跳过赋速即可。
+        if (dir.lengthSquared() > 1.0E-6) {
+            ent.setVelocity(dir.normalize().multiply(1.7));
+        }
         p.sendMessage("§b恭喜你钓到了 " + displayName(stack) + " §b*1");
         p.playSound(p.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1f, 1f);
     }

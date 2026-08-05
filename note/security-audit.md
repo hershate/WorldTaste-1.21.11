@@ -282,3 +282,25 @@
 - **顶层 `glow:`（items.yml 仅 1 处）**：疑似 YAML 缩进错误（glow 应在 `item:` 段内；`Read.item` 仅读 item 段的 glow），该物品可能不发光。属内容数据小瑕疵，非代码 bug。
 - **巨人丸 `spawnEntity` 绕过领地保护**（r2/r11/r12 todo）。
 - **`recipe_machines/linked/template/workbench` 各 Loader 的槽位与配方解析**专门核查（下一轮候选）。
+
+## 第 14 轮（2026-08-05）：机器类 Loader 槽位/配方解析信任边界 + 巨人丸评估（验证轮）
+
+> 本轮覆盖全部机器类 Loader（[RecipeMachineLoader](../plugin/src/main/java/com/haiman233/worldtaste/load/RecipeMachineLoader.java)/[MultiBlockLoader](../plugin/src/main/java/com/haiman233/worldtaste/load/MultiBlockLoader.java)/[TemplateLoader](../plugin/src/main/java/com/haiman233/worldtaste/load/TemplateLoader.java)/[WorkbenchLoader](../plugin/src/main/java/com/haiman233/worldtaste/load/WorkbenchLoader.java)）+ [MenuLoader](../plugin/src/main/java/com/haiman233/worldtaste/load/MenuLoader.java)/[WT](../plugin/src/main/java/com/haiman233/worldtaste/WT.java) 的解析边界，并正式评估反复延后的「巨人丸 spawnEntity 绕过领地」TODO。**验证轮：经实证无缺陷、无代码改动**。
+
+### 复查确认（本轮无问题项——附证据）
+- **并行数组定长，无长度错配**：`readRecipes` 中 input↔inSlots↔noConsume、output↔chances↔outSlots 均同步构建（同 `.size()`）；`WTRecipe` 对 `chances[i]/noConsume[i]/inSlots[i]/outSlots[i]` 全部 `i < length` 守卫（`inSlot(i)`、`isNoConsume`、`pushOutputs`）。**无 AIOOBE**。
+- **绑定槽安全降级**：recipe `slot` 值不在机器 `inputSlots[]` 时，`findMatch` 的 `posOf.get(bound)==null` → `failed` 跳过该配方（不崩溃）；`distinct!=n` 防同槽双消耗。
+- **多方块机 consume 无 NPE**：`onInteract` 消耗 `contents[j]` 时 `input[j].getAmount()` 仅在 `item!=null` 时调用；而 `isCraftable` 已保证 `input[j]==null ⇒ contents[j]==null/AIR`（否则不相似、整配方不命中）→ 必跳过，不触 NPE。`work∈1..9` + 结构槽非空已校验（[MultiBlockLoader.java:36](../plugin/src/main/java/com/haiman233/worldtaste/load/MultiBlockLoader.java)）。
+- **能量防断电软锁**：`setEnergyConsumption(max(1, min(consumption, max(1,capacity))))` 使消耗恒 ≤ 容量，机器总能蓄够电运行，不会因 capacity<consumption 永久卡死吞输入。
+- **模板机**：未知 SF 物品放入 templateSlot → `byTemplate.get==null` 安全返回不合成；模板在 templateSlot 不在 inputSlots，`consumeMatch` 不触及（模板不消耗，符合设计）。
+- **`MenuLoader.parseSlots`**：r3 已修反转区间 `NegativeArraySizeException`；现 `lo>=0 && hi>=lo` 校验 + 单值 `v>=0`，非法键回退空数组仅跳过该槽，不连累整菜单。
+- **`WT` 全局表**：`group(id)` null 安全 + 小写；`log` null 安全；groups/menus/preload/recipeTypes 均启动期填充、运行期只读、主线程访问，无竞态。
+- **`readMbRecipes` 的 `Map<ItemStack[],ItemStack>`**：仅 `entrySet()` 遍历调 `addRecipe`，**不按键查找**，数组作 key 的引用相等性无影响。
+
+### 评估后【未改】—— 关闭「巨人丸 spawnEntity 绕过领地」TODO（r2/r11/r12/r13 反复提及）
+- **结论：不加 `ProtectionManager` 校验**。理由：(1) `EntityType.GIANT`（巨人僵尸）原版默认无 AI，不移动不攻击，即便在他人物权内生成也基本无害（视觉实体）；(2) 每次 `spawnEntity` 前先 `Stacks.consumeOneInMainHand` 消耗 1 颗巨人丸，**生成数量受药丸供给约束**（药丸需合成），非可无限免费刷实体；(3) 行为对齐原 `jurenwan.js`（同样直接 spawnEntity）；(4) 领地校验用 `Interaction.PLACE_BLOCK` 语义判定实体生成可能误拒、反而破坏道具功能，收益低、风险高。该项正式关闭。
+
+### 待办（后续轮次）
+- **内容保真度深核**：gandi/yurenjie/hetun 主题脚本在 machines.yml(作物) vs consumables.yml(食物) 的**类型归属**是否与原脚本一致（r13 遗留，只证「有定义」未证「类型正确」）。
+- **潜伏（数据驱动，当前不触发，未改）**：`templateSlot`/workbench `click` 槽位超出菜单尺寸的潜在越界；linked 机器 outSlot 与 inputSlot 重叠。需畸形配置才触发。
+- **代码层审查趋近饱和**：r1–r14 已逐文件覆盖 ~40 Java 文件 + 行为数据 + 内容解析 + 机器 Loader。剩余价值主要在**实机加载验证**（需服务端）与**内容作者补全**（2 个未定义 id、items.yml 配方数据、主题脚本类型归属）。

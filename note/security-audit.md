@@ -32,3 +32,31 @@
 - 多方块机 `getContents()` 快照写回的脆弱性（上游共有）—— 评估是否改为显式 `setItem` 提交。
 - 破坏机器中途 `onBlockBreak` 丢已消耗输入（上游 AContainer 同行为）—— 评估是否对齐预期。
 - 版本号：本轮为关键修复（含复制漏洞），审查周期结束后统一升版并写 release note。
+
+## 第 2 轮（2026-08-05）：物品属性加载与特殊脚本物品
+
+**范围**：`ItemSpec`/`ScriptItemFactory`/`AttributeItems`（物品分派与属性）、各内容加载器（`ItemsLoader`/`RecipeMachineLoader`/`MultiBlockLoader`/`WorkbenchLoader`/`TemplateLoader`，槽位与配方解析）、`SpecialItems`（捕云瓶/巨人丸）。重点：加载期 NPE/越界级联、属性边界、玩家可触发路径的消耗健壮性。
+
+### 已修复
+
+| # | 严重度 | 位置 | 缺陷 | 后果 | 修复 / commit |
+|---|---|---|---|---|---|
+| 6 | 🔴 幽灵 | `SpecialItems.CloudBottleItem`/`GiantPillItem` | 主手 `setAmount(n-1)` 到 0 残留幽灵物品（第 1 轮修了钓鱼/消耗品/打火石，遗漏此处两处） | 0 数量物品被持续识别/显示 | `Stacks.consumeOneInMainHand` 到 0 清空 — `13fcf79` |
+| 7 | 🟠 吞物品 | `SpecialItems.CloudBottleItem` | 先消耗瓶子再解析掉落物；若 `WT_CLOUD/WT_THUNDERCLOUD` 未注册则瓶子被吞无产出 | 配置缺失时丢物品 | 先 `getById` 校验掉落物，未注册不消耗 — `13fcf79` |
+| — | 🟡 清理 | `RecipeMachineLoader.compact` | 定义但从未调用的死代码 | 维护负担 | 移除 — `8ae80c4` |
+
+### 验证
+- `./gradlew compileJava` 通过。
+- 全局 `grep setAmount\(` 覆盖确认：**玩家背包消耗点已全部收敛到 `Stacks.consumeOne*`**（钓鱼/消耗品主手+副手打火石/捕云瓶/巨人丸）。其余 `setAmount` 命中（`BlockDrops` 投放数量、`FishingListener` 掉落鱼 `setAmount(1)`、`Read` 读取展示堆数量、`Stacks` 助手本体）均为新建/读取堆，非玩家槽位消耗，无幽灵风险。
+
+### 复查确认（本轮无问题项）
+- **加载器槽位校验**：`MultiBlockLoader` 校验 `work∈1..9` 且结构槽非空（防 AIOOBE，对应历史 commit `6bf4c3d`）；`RecipeMachineLoader.readRecipes` 对空输入/输出配方跳过（避免 `CraftingOperation` 校验抛异常）；各 loader 均逐条 `try/catch`，单条失败不影响整体。
+- **多方块消耗**：`WTMultiBlockMachine.onInteract` 顺序为 先 `findOutputInventory`→满则 return（不消耗）→消耗输入→产出；`getContents()` 镜像写回为上游 Slimefun 同模式，消耗/产出均落盘，无复制/丢失。
+- **属性分派**：`ScriptItemFactory` 单属性优先级分派合理；`parseRadiation`/`parseSound` 均 try/catch 容错；`ItemSpec` 配置项默认值齐全。
+- **`id_alias` 解析**：`ItemsLoader.register` 优先按 `id_alias` 取展示堆，回退原 id，与 preloadDisplays 一致。
+
+### 待办（后续轮次）
+- `RegisterConditions`/`Yaml`/`FoodHelper`（反射 FoodComponent，失败记 severe）的健壮性与异常路径。
+- `WTMultiBlockMachine.dispenserFaceGet()` 的 EAST/WEST 方位映射疑似水平翻转——需结合实机多方块结构核对（不臆测改动）。
+- `GiantPillItem` 召唤 GIANT 未做区域保护校验（spawnEntity 绕过领地插件）——评估是否加 `ProtectionManager` 校验。
+- 多方块机 `getContents()` 快照写回脆弱性（上游共有）。

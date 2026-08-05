@@ -485,3 +485,21 @@
 
 ### 结论
 端口 `Read.item/recipe` 对 WorldTaste **实际使用的内容子集**功能等价于 RSC，省略的 RSC 特性均未被内容采用，无保真度缺口、无 STONE 误回退风险。累计 **20 处修复 + 25 轮核查**。
+
+## 第 26 轮（2026-08-05）：机器配方 chooseOne/chance 对比 RSC 源码保真度
+
+> 把端口 [WTRecipe.pushOutputs](../plugin/src/main/java/com/haiman233/worldtaste/machines/WTRecipe.java) 的 chooseOne/chance 语义与 RSC [BlockMenuUtil.pushItem](../REF/RykenSlimeCustomizer-1.21.11/src/main/java/org/lins/mmmjjkx/rykenslimefuncustomizer/utils/BlockMenuUtil.java) 逐行对照，发现并修复一处影响 111 个配方的产出分布保真度偏差。
+
+### 已修复
+
+| # | 严重度 | 位置 | 缺陷 | 后果 | 修复 / commit |
+|---|---|---|---|---|---|
+| 21 | 🟠 保真度 | `WTRecipe.pushOutputs` chooseOne | 端口在「通过概率滚动的幸存输出」中**随机**选一个；RSC 是**首个幸存者即产出并 break**（后序输出仅作主产出失败时的回退） | **111 个 chooseOne 配方**(recipe_machines 109 + workbenches 2)产出分布偏离原版（例：[A:100,B:50] RSC 恒产 A、端口 ~25% 产 B） | 改为 `passed.get(0)`（首个幸存者），与 RSC `if(chooseOneIfHas) break` 一致 — `af9bee8` |
+
+### 复查确认（本轮无问题项）
+- **chance=0 分歧不显现**：RSC 对 chance=0 总是产出（`chance>0` 守卫不触发）、端口跳过；但 grep 全部配方文件 **0 处 chance:0**，分歧为潜伏不显现，未改（且 chance=0 在 RSC 中「总是产出」本身疑似 quirk，端口「永不产出」更符合直觉，无内容受影响）。
+- **chance∈(0,100) 概率滚动**：端口 `nextInt(100)<chance` 与 RSC `Math.random()*100>chance`(fail 条件) 概率等价。
+- **输出顺序**：端口按 `outSec.getKeys(false)`（插入序）构建 outs，与 RSC keySet 迭代序一致 → `passed.get(0)` 即 RSC 的首个幸存者。
+
+### 阶段状态
+累计 **21 处修复 + 26 轮核查**。RSC 源码对照持续产出保真度修正（r24 FoodHelper、r26 chooseOne）。

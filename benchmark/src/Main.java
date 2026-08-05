@@ -52,6 +52,9 @@ public final class Main {
         System.out.println("\n[R6] 启动期 YAML 解析缓存（每次加载）");
         runLoad();
 
+        System.out.println("\n[R7] 启动期 头颅贴图(PlayerSkin)去重缓存（每次加载）");
+        runSkin();
+
         System.out.println("\n(busywork sink=" + Cost.sink + " —— 非零证明代价未被死码消除)");
     }
 
@@ -75,6 +78,40 @@ public final class Main {
         long newNs = timeOp(() -> FishingBench.sink += FishingBench.selectNew(FishingBench.BAIT) == null ? 0 : 1);
         System.out.printf("  旧(每次求和133)=%dns  vs  新(预算total)=%dns  → %.2fx（O(n)→O(1)，绝对小但零风险）%n",
                 oldNs, newNs, ratio(oldNs, newNs));
+    }
+
+    private static void runSkin() {
+        // 预热
+        for (int i = 0; i < 3; i++) {
+            long[] s = { 0 };
+            SkinBench.oldDecode(s);
+            SkinBench.newDecode(s);
+            Cost.sink += s[0];
+        }
+        int ITERS = 30;
+        long[] sink = { 0 };
+        long t0 = System.nanoTime();
+        int oldWork = 0;
+        for (int i = 0; i < ITERS; i++) oldWork += SkinBench.oldDecode(sink);
+        long oldNs = System.nanoTime() - t0;
+        t0 = System.nanoTime();
+        int newWork = 0;
+        for (int i = 0; i < ITERS; i++) newWork += SkinBench.newDecode(sink);
+        long newNs = System.nanoTime() - t0;
+        Cost.sink += sink[0];
+        int total = SkinBench.HASHES.size();
+        int uniq = SkinBench.UNIQUE;
+        int redundant = total - uniq;
+        System.out.printf("  数据源: %s（扫描到 %d 个 skull_hash 解码，唯一 %d，重复 %d = %.1f%%）%n",
+                SkinBench.usedRealFiles ? "仓库根真实内容文件" : "合成代表分布（未找到真实文件）",
+                total, uniq, redundant, total == 0 ? 0 : 100.0 * redundant / total);
+        System.out.printf("  fromHashCode 工作次数/加载: 旧=%d  新=%d   （缓存命中重复项）%n",
+                oldWork / ITERS, newWork / ITERS);
+        System.out.printf("  fromHashCode 段耗时(%d 次加载): 旧=%.2fms  新=%.2fms  → %.2fx%n",
+                ITERS, oldNs / 1e6, newNs / 1e6, ratio(oldNs, newNs));
+        System.out.println("  说明：基准逐字复刻 fromHashCode 的 JDK 工作(MD5+JSON+Base64+URL)；getItemStack 依赖 Bukkit 未计入。");
+        System.out.printf("        重复率仅 %.1f%%，故绝对收益受限于去重量；3021 个唯一解码为不可约剩余。%n",
+                total == 0 ? 0 : 100.0 * redundant / total);
     }
 
     private static void runLoad() {

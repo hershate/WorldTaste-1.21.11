@@ -382,3 +382,16 @@
 ### 阶段性总评（r1–r18）
 - 累计 **18 处修复**，覆盖：复制/幽灵物品(5+处)、级联故障隔离(GroupLoader/preloadDisplays/loadCrops/FishingListener)、机器槽位/能量/重入、作物加权掉落、drop_from 双重掉落、**168 饮品不可食(r17)**、菜单/属性分派/脚本派发/recipe_type/id_alias 等。
 - 注册门控、id_alias 变体模式经本轮核验正确。代码层 + 数据派发层静态审查高度饱和；剩余为**实机验证**(FoodComponent 0 营养可食性、整体加载)与**内容作者项**(2 个未定义 id、配方数据)。
+
+## 第 19 轮（2026-08-05）：插件元数据/构建配置 + 全量构建完整性（验证轮）
+
+> 本轮覆盖此前未直接核查的插件元数据（[plugin.yml](../plugin/src/main/resources/plugin.yml)）、构建脚本（[build.gradle.kts](../plugin/build.gradle.kts)）、消耗品强力效果字段，并在 r11–r18 全部改动后执行**完整 `./gradlew build`** 确认编译+打包完整性。**验证轮：无缺陷、无代码改动**。
+
+### 复查确认（本轮无问题项——附证据）
+- **`plugin.yml` 正确**：`depend:[Slimefun]`（硬依赖，与本地 Slimefun4.1 jar 的 `name:Slimefun` 精确匹配，保证先加载）、`api-version:'1.21'`、`softdepend:[Gastronomicon,ExoticGarden,Cultivation,InfinityExpansion,LogiTech]`、main 类正确。无自定义权限声明（复用 Slimefun 的 `slimefun.inventory.bypass`，合理）。
+- **`build.gradle.kts` 正确**：Java 21 toolchain + `release=21` + UTF-8；`compileOnly` Paper 1.21.11 API + 本地 Slimefun4.1 jar（不联网）；`processResources` 含 13 内容 YAML 入 jar 根目录。
+- **消耗品强力字段无滥用**：consumables.yml 中 `gameMode` 仅 `ADVENTURE`/`SURVIVAL`（**无 CREATIVE/SPECTATOR → 无权限提升滥用**）；`absorption:45`/`freezeTicks`(0~17000)/`maxAir`(300/8000) 均为 Bukkit 容错的数据驱动效果，`ConsumableItem` 经 `GameMode.valueOf` try/catch、`setAbsorptionAmount/setFreezeTicks/setMaximumAir` 均无越界崩溃路径。
+- **全量构建通过**：`./gradlew build` BUILD SUCCESSFUL；产物 `WorldTaste-1.8.2-standalone.jar`(553KB) 内含 **13 内容 YAML + plugin.yml + data/{consumables,crops,fishing}.yml**，清单完整、无缺失。**确认 r11–r18 共 18 处修复均正确编译并打包**。
+
+### 阶段性结论
+代码层、数据派发层、加载编排、注册门控、构建打包均已逐项核验，静态审查**全面饱和**。累计 **18 处修复**全部纳入通过编译的 jar。后续静态轮次预期仅产出验证结论；真正剩余工作为**实机加载/运行验证**（需真实 Paper 1.21.11 + Slimefun4.1 + 美食家/异域花园服务端）。

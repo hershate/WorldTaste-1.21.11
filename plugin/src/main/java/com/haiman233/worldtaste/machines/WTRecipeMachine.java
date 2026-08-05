@@ -179,7 +179,7 @@ public class WTRecipeMachine extends AContainer implements RecipeDisplayItem {
         }
         WTRecipe r = active.remove(b.getLocation());
         if (r != null) {
-            r.pushOutputs(inv, outputSlots);
+            pushRecipeOutputs(b, inv, r);
         }
         inv.replaceExistingItem(pslot, progressBar);
         getMachineProcessor().endOperation(b);
@@ -188,6 +188,14 @@ public class WTRecipeMachine extends AContainer implements RecipeDisplayItem {
     @Override
     protected MachineRecipe findNextRecipe(BlockMenu inv) {
         return matchRecipes(inv, recipes);
+    }
+
+    /**
+     * 把已完成配方的产出推入机器（默认推入 outputSlots）。抽取为可覆盖钩子，供子类（如
+     * {@link WTTemplateMachine} 的 {@code moreOutputIfMoreTemplates}）按需放大产出。
+     */
+    protected void pushRecipeOutputs(Block b, BlockMenu inv, WTRecipe r) {
+        r.pushOutputs(inv, outputSlots);
     }
 
     /** 匹配结果：命中的配方 + 各输入项选中的输入槽下标（在 {@link #inputSlots} 中的位置）。消耗前保持有效。 */

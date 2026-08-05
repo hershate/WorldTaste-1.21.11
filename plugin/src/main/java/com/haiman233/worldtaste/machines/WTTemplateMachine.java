@@ -20,14 +20,18 @@ public class WTTemplateMachine extends WTRecipeMachine {
 
     private final int templateSlot;
     private final Map<String, List<WTRecipe>> byTemplate;
+    /** 模板堆叠数放大产出（对齐 RSC moreOutputIfMoreTemplates：产出 amount *= 模板数量）。 */
+    private final boolean moreOutputIfMoreTemplates;
 
     public WTTemplateMachine(ItemGroup group, SlimefunItemStack item, RecipeType rt, ItemStack[] recipe,
                              int[] input, int[] output, List<WTRecipe> allRecipes,
                              Map<String, List<WTRecipe>> byTemplate,
-                             int capacity, int consumption, int speed, MenuDef menu, boolean hideAll, int templateSlot) {
+                             int capacity, int consumption, int speed, MenuDef menu, boolean hideAll, int templateSlot,
+                             boolean moreOutputIfMoreTemplates) {
         super(group, item, rt, recipe, input, output, allRecipes, capacity, consumption, speed, menu, hideAll);
         this.templateSlot = templateSlot;
         this.byTemplate = byTemplate;
+        this.moreOutputIfMoreTemplates = moreOutputIfMoreTemplates;
         // super() 末尾重建 preset 时本类字段 templateSlot 尚未赋值（读到 0），
         // 导致真正的模板槽被背景封死。字段就绪后再重建一次 preset。
         createPreset(this, getInventoryTitle(), this::constructMenu);
@@ -46,5 +50,17 @@ public class WTTemplateMachine extends WTRecipeMachine {
         List<WTRecipe> list = byTemplate.get(sf.getId().toUpperCase(java.util.Locale.ROOT));
         if (list == null || list.isEmpty()) return null;
         return matchRecipes(inv, list);
+    }
+
+    @Override
+    protected void pushRecipeOutputs(org.bukkit.block.Block b, BlockMenu inv, WTRecipe r) {
+        if (!moreOutputIfMoreTemplates) {
+            super.pushRecipeOutputs(b, inv, r);
+            return;
+        }
+        // 对齐 RSC CustomTemplateMachine:274-275：产出数量乘以当前模板堆叠数（模板不被消耗，堆叠持续放大）。
+        ItemStack tpl = inv.getItemInSlot(templateSlot);
+        int mult = (tpl != null && tpl.getType() != org.bukkit.Material.AIR) ? Math.max(1, tpl.getAmount()) : 1;
+        r.pushOutputs(inv, getOutputSlots(), mult);
     }
 }

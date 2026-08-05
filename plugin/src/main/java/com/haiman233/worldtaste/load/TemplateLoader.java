@@ -45,6 +45,7 @@ public final class TemplateLoader {
                 int consumption = s.getInt("consumption", s.getInt("energyPerCraft", 8));
                 int templateSlot = s.getInt("templateSlot", 21);
                 boolean hideAll = s.getBoolean("hideAllRecipes", false);
+                boolean moreOutputIfMoreTemplates = s.getBoolean("moreOutputIfMoreTemplates", false);
 
                 Map<String, List<WTRecipe>> byTemplate = new HashMap<>();
                 List<WTRecipe> all = new ArrayList<>();
@@ -60,7 +61,7 @@ public final class TemplateLoader {
                 }
                 MenuDef menu = WT.menus.get(id);
                 WTTemplateMachine m = new WTTemplateMachine(g, sfis, rt, craftRecipe, input, output, all,
-                        byTemplate, capacity, consumption, 1, menu, hideAll, templateSlot);
+                        byTemplate, capacity, consumption, 1, menu, hideAll, templateSlot, moreOutputIfMoreTemplates);
                 m.register(WT.plugin);
                 ok++;
             } catch (Exception e) {

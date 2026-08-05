@@ -44,6 +44,17 @@ public class WTRecipe extends MachineRecipe {
 
     /** 完成时滚动产出并把每个通过项推入其绑定槽（无绑定则推入 freeSlots）。 */
     public void pushOutputs(me.mrCookieSlime.Slimefun.api.inventory.BlockMenu inv, int[] freeSlots) {
+        pushOutputs(inv, freeSlots, 1);
+    }
+
+    /**
+     * 完成时滚动产出并把每个通过项推入其绑定槽（无绑定则推入 freeSlots）。
+     *
+     * @param multiplier 产出数量乘数（&gt;1 时每个产出 amount *= multiplier）。用于模板机的
+     *                   {@code moreOutputIfMoreTemplates}（按模板堆叠数放大产出，对齐 RSC
+     *                   CustomTemplateMachine:274-275）；默认 1（普通机器不受影响）。
+     */
+    public void pushOutputs(me.mrCookieSlime.Slimefun.api.inventory.BlockMenu inv, int[] freeSlots, int multiplier) {
         ItemStack[] base = getOutput();
         List<Integer> passed = new ArrayList<>();
         for (int i = 0; i < base.length; i++) {
@@ -61,9 +72,11 @@ public class WTRecipe extends MachineRecipe {
         for (int i : passed) {
             ItemStack o = base[i];
             if (o == null) continue;
+            ItemStack out = o.clone();
+            if (multiplier > 1) out.setAmount(out.getAmount() * multiplier);
             int slot = (outSlots != null && i < outSlots.length) ? outSlots[i] : -1;
             // 绑定槽推入有剩余时回退到自由槽，仍有剩余则掉落在机器旁（对齐 AContainer 的溢出处理）
-            ItemStack leftover = (slot >= 0) ? inv.pushItem(o.clone(), slot) : inv.pushItem(o.clone(), freeSlots);
+            ItemStack leftover = (slot >= 0) ? inv.pushItem(out, slot) : inv.pushItem(out, freeSlots);
             if (leftover != null && leftover.getType() != org.bukkit.Material.AIR) {
                 ItemStack rest = inv.pushItem(leftover, freeSlots);
                 if (rest != null && rest.getType() != org.bukkit.Material.AIR

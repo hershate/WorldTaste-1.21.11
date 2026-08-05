@@ -1,5 +1,6 @@
 package com.haiman233.worldtaste.machines;
 
+import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
@@ -19,6 +20,10 @@ public class WTRecipe extends MachineRecipe {
     private final int[] inSlots;
     /** 每个输出绑定的菜单槽（-1=任意输出槽），用于 linked 机器。 */
     private final int[] outSlots;
+    /** 每个输入预解析的 Slimefun id（原版输入为 null）；惰性解析（首次 {@link #inputSfId} 时填充）。
+     *  供 {@link WTRecipeMachine} 的 SF-id 预筛使用：两端均 SF 且 id 不同时可安全跳过昂贵的
+     *  {@code SlimefunUtils.isItemSimilar}（其 both-SF 分支按 id 比较，id 不同必返回 false）。 */
+    private String[] inputSfIds;
 
     public WTRecipe(int seconds, ItemStack[] input, ItemStack[] output, int[] chances, boolean chooseOne, boolean[] noConsume) {
         this(seconds, input, output, chances, chooseOne, noConsume, new int[0], new int[0]);
@@ -36,6 +41,29 @@ public class WTRecipe extends MachineRecipe {
 
     public int inSlot(int i) {
         return (inSlots != null && i < inSlots.length) ? inSlots[i] : -1;
+    }
+
+    /**
+     * 第 i 个输入预解析的 Slimefun id（原版输入返回 null）。
+     * <p>惰性解析并缓存：仅在 {@link WTRecipeMachine} 启用 SF-id 预筛时被调用（多为每 tick 主线程访问），
+     * 故多方块等不经过该路径的 WTRecipe 不会为此付出解析开销。重复解析为幂等（同一输入得到同一 id），
+     * 即便极端并发下重复填充也无害。
+     */
+    public String inputSfId(int i) {
+        String[] ids = inputSfIds;
+        if (ids == null) {
+            ItemStack[] inputs = getInput();
+            ids = new String[inputs.length];
+            for (int k = 0; k < inputs.length; k++) {
+                ItemStack in = inputs[k];
+                if (in != null) {
+                    SlimefunItem sf = SlimefunItem.getByItem(in);
+                    ids[k] = sf != null ? sf.getId() : null;
+                }
+            }
+            inputSfIds = ids;
+        }
+        return (i >= 0 && i < ids.length) ? ids[i] : null;
     }
 
     public boolean isNoConsume(int index) {

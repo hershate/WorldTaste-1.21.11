@@ -39,6 +39,8 @@ public class WTRecipeMachine extends AContainer implements RecipeDisplayItem {
     private final MenuDef menu;
     private final boolean hideAll;
     private final ItemStack progressBar;
+    /** 是否启用 SF-id 预筛（仅纯-SF 机器为 true）。见 {@link #computeSfPrune}。 */
+    private final boolean sfPrune;
     /** 进行中配方（按方块），完成时取此处的 WTRecipe 做概率滚动。 */
     private final Map<org.bukkit.Location, WTRecipe> active = new ConcurrentHashMap<>();
 
@@ -49,6 +51,7 @@ public class WTRecipeMachine extends AContainer implements RecipeDisplayItem {
         this.inputSlots = inputSlots;
         this.outputSlots = outputSlots;
         this.recipes = recipes;
+        this.sfPrune = computeSfPrune(recipes);
         this.menu = menu;
         this.hideAll = hideAll;
         this.progressBar = (menu != null && menu.progressItem != null)
@@ -223,6 +226,11 @@ public class WTRecipeMachine extends AContainer implements RecipeDisplayItem {
             if (si != null) { anyInput = true; break; }
         }
         if (!anyInput) return null;
+        // SF-id 预筛（仅纯-SF 机器启用，见 sfPrune）：每 tick 对每个非空输入槽解析一次 SF id（读 PDC），
+        // 随后用廉价必要条件 idCertainlyMismatch 跳过「两端均 SF 且 id 不同」者——此类 isItemSimilar 必返回
+        // false（其 both-SF 分支按 id 比较），故跳过不改变匹配结果，仅省去昂贵的 isItemSimilar（内含 2× getByItem）。
+        // sfPrune=false 时 slotSfId=null，下方 !(sfPrune && ...) 短路为 true，行为与优化前逐字一致（零回归）。
+        String[] slotSfId = sfPrune ? resolveSlotSfIds(slotItems) : null;
         for (WTRecipe recipe : recipeList) {
             ItemStack[] inputs = recipe.getInput();
             int n = inputs.length;
@@ -239,14 +247,18 @@ public class WTRecipeMachine extends AContainer implements RecipeDisplayItem {
                     Integer pos = posOf.get(bound);
                     if (pos == null) { failed = true; break; }
                     ItemStack in = slotItems[pos];
-                    if (in != null && in.getAmount() >= need.getAmount() && SlimefunUtils.isItemSimilar(in, need, true)) {
+                    if (in != null && in.getAmount() >= need.getAmount()
+                            && !(sfPrune && idCertainlyMismatch(slotSfId[pos], recipe.inputSfId(i)))
+                            && SlimefunUtils.isItemSimilar(in, need, true)) {
                         chosen[i] = pos;
                         matched++;
                     } else { failed = true; break; }
                 } else {
                     for (int s = 0; s < slotCount; s++) {
                         ItemStack in = slotItems[s];
-                        if (in != null && in.getAmount() >= need.getAmount() && SlimefunUtils.isItemSimilar(in, need, true)) {
+                        if (in != null && in.getAmount() >= need.getAmount()
+                                && !(sfPrune && idCertainlyMismatch(slotSfId[s], recipe.inputSfId(i)))
+                                && SlimefunUtils.isItemSimilar(in, need, true)) {
                             chosen[i] = s;
                             matched++;
                             break;
@@ -286,6 +298,45 @@ public class WTRecipeMachine extends AContainer implements RecipeDisplayItem {
     /** 用本机器的全部配方匹配（不消耗）。 */
     protected Match findMatch(BlockMenu inv) {
         return findMatch(inv, recipes);
+    }
+
+    /** 预解析各非空输入槽的 SF id（读 PDC，每 tick 每槽一次）。仅 sfPrune=true 时调用。 */
+    private static String[] resolveSlotSfIds(ItemStack[] slotItems) {
+        String[] ids = new String[slotItems.length];
+        for (int s = 0; s < slotItems.length; s++) {
+            ItemStack it = slotItems[s];
+            if (it != null && it.hasItemMeta()) {
+                ids[s] = io.github.thebusybiscuit.slimefun4.implementation.Slimefun.getItemDataService()
+                        .getItemData(it.getItemMeta()).orElse(null);
+            }
+        }
+        return ids;
+    }
+
+    /**
+     * 廉价必要条件预筛：两端均为已解析 SF 物品且 id 不同时返回 true（即「确定不匹配」，可安全跳过 isItemSimilar）。
+     * <p>安全性依据 {@link SlimefunUtils#isItemSimilar}：当 item 与 sfitem 均为已注册 SF 物品且 id 不同时，
+     * 其 both-SF 分支（REF SlimefunUtils.java:363-366）必返回 false。其余情形（任一为原版、id 相同、或无 PDC）
+     * 一律返回 false（不跳过），仍交 isItemSimilar 定夺，完整保留 DistinctiveItem/meta 等边界语义与 RSC 保真度。
+     */
+    private static boolean idCertainlyMismatch(String inId, String needId) {
+        return inId != null && needId != null && !inId.equals(needId);
+    }
+
+    /**
+     * 闸门：是否启用 SF-id 预筛。仅当「≥2 配方 且 所有配方的所有非空输入均为已注册 SF 物品」时为 true。
+     * <p>纯-SF 机器（如头颅类）的每 tick 扫描代价由 getByItem 主导，预筛可将其从 O(配方数) 次昂贵比较降至
+     * O(命中) 次；而原版/混合机器的代价由廉价的类型短路主导，预筛无收益反增解析开销，故关闭（零回归）。
+     */
+    private static boolean computeSfPrune(List<WTRecipe> recipes) {
+        if (recipes == null || recipes.size() < 2) return false;
+        for (WTRecipe recipe : recipes) {
+            ItemStack[] inputs = recipe.getInput();
+            for (int i = 0; i < inputs.length; i++) {
+                if (inputs[i] != null && recipe.inputSfId(i) == null) return false;
+            }
+        }
+        return true;
     }
 
     /** 消耗已匹配配方的输入（跳过 noConsume 项与未占用槽位）。 */

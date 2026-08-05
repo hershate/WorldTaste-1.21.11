@@ -31,6 +31,7 @@
 ## 4. 已知差距 / 内容缺口（非代码 bug）
 - [ ] 指南中 `WT_XIANGYUNCF`、`WT_XUECHENGGQ` 相关配方显示为石头（未定义 id，需内容作者补）。
 - [ ] button 型物品组点击会多一个空分页（已知小差距，可后续对齐）。
+- [ ] **r30** `WT_CHANLUANSHI` 的 `moreOutputIfMoreTemplates`：实机确认堆叠多个模板时产出按数量放大（对齐 RSC）。`fasterIfMoreTemplates` 两台模板机均为 false，未实现（无影响）。
 
 ## 5. 高负载稳定性（用户核心诉求）
 - [ ] 大量机器同时 tick（数十台电力机满载）下 TPS 正常（空闲早返回已优化 r5）。

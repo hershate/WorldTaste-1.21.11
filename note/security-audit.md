@@ -545,3 +545,21 @@
 
 ### 阶段状态
 累计 **21 处修复 + 29 轮核查**。RSC 源码对照已覆盖主要共享逻辑，近期多为「忠实」或「潜伏不显现/有益偏离」。该方向产出趋稳。
+
+## 第 30 轮（2026-08-05）：模板机对比 RSC —— 实现 moreOutputIfMoreTemplates
+
+> 把端口 [WTTemplateMachine](../plugin/src/main/java/com/haiman233/worldtaste/machines/WTTemplateMachine.java) 与 RSC [CustomTemplateMachine](../REF/RykenSlimeCustomizer-1.21.11/src/main/java/org/lins/mmmjjkx/rykenslimefuncustomizer/objects/customs/machine/CustomTemplateMachine.java) 对照，发现端口缺失 RSC 的 `moreOutputIfMoreTemplates` 特性（WorldTaste 实际启用）并补齐。
+
+### 已修复
+
+| # | 严重度 | 位置 | 缺陷 | 后果 | 修复 / commit |
+|---|---|---|---|---|---|
+| 22 | 🟠 保真度/功能 | `WTTemplateMachine` | 端口用标准 tick 定速定产，未实现 RSC `moreOutputIfMoreTemplates`（产出 amount ×= 模板堆叠数，CustomTemplateMachine:274-275） | `WT_CHANLUANSHI`（`moreOutputIfMoreTemplates:true`）产出不随模板堆叠数放大，功能缺失/不忠实 | WTRecipe.pushOutputs 加 multiplier 重载；WTRecipeMachine 抽 `pushRecipeOutputs` 钩子；WTTemplateMachine 覆盖按模板数乘产出；TemplateLoader 读字段传入 — `cd1aad7` |
+
+### 复查确认 / 评估后未改
+- **`fasterIfMoreTemplates`（模板堆叠数加速 ticks/amount）**：WorldTaste 两台模板机（WT_CHANLUANSHI/WT_TUZAIJI）**均 false** → 未使用，暂不实现（实现需覆盖 operation 创建调整 ticks，无数据受益，省风险）。
+- **模板门控**：端口 `getByItem(tpl)`→`byTemplate.get(sfId)` 与 RSC `template.isItemSimilar(templateItem)` 均为「无/未知模板→不合成」，等价安全。
+- **RSC 的 moreOutput 溢出**：RSC `pushItem` 不处理 leftover（溢出可能丢失）；端口沿用 `pushOutputs` 的 leftover→freeSlots→掉落链（**端口更稳，不丢失**）。
+
+### 阶段状态
+累计 **22 处修复 + 30 轮核查**。RSC 源码对照方向持续产出（r24 FoodHelper、r26 chooseOne、r30 moreOutputIfMoreTemplates 共 3 处保真度修正）。

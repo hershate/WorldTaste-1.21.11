@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "com.haiman233"
-version = "1.8.8-standalone"
+version = "1.8.9-standalone"
 
 java {
     toolchain.languageVersion.set(JavaLanguageVersion.of(21))

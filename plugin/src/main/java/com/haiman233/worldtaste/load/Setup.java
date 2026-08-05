@@ -33,6 +33,9 @@ public final class Setup {
         TemplateLoader.load();
         GeoLoader.load();
         com.haiman233.worldtaste.behavior.Behaviors.registerListeners();
+        // R6：所有内容/行为文件加载完毕，释放 Yaml 文件名缓存的解析树（长稳：避免长期持有 ~MB 级解析对象树）。
+        // 经核查无 Loader 以字段持久持有 ConfigurationSection，registerListeners 也不再访问 YAML，释放安全。
+        Yaml.clearCache();
         WT.plugin.getLogger().info("基础内容加载完成，耗时 " + (System.currentTimeMillis() - t) + "ms");
     }
 

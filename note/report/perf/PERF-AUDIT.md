@@ -5,7 +5,7 @@
 > 每轮：编写/更新 `benchmark/` 测试程序量化前后性能 → 生成对比报告到本目录 → 更新 note 其它内容 → 细粒度 commit。
 > 只维护**插件版本**（plugin/）。
 >
-> 状态文件：本文件记录每轮结论与累计修复，供 /loop 持续优化跨轮续作。当前版本基线 `1.8.10-standalone`。
+> 状态文件：本文件记录每轮结论与累计修复，供 /loop 持续优化跨轮续作。当前版本基线 `1.8.11-standalone`。
 
 ## 方法论与诚实声明
 
@@ -29,6 +29,7 @@
 | R5 | 不变量展示列表 + 闭合 | `WTRecipeMachine.getDisplayRecipes` 缓存展示列表（同 R2「提升不变量」原则）；评估 pushOutputs 等低频路径不予改 | getDisplayRecipes **~90×**/次（269→3 ns；指南低频，绝对小） | ✅ recipes 不变，缓存安全 | （见下） |
 | R6 | **启动期** YAML 解析缓存（新维度：加载期，R1–R5 未覆盖） | `Yaml.loadResource` 文件名缓存：preloadDisplays + 各 Loader 共 10 个内容文件由「解析两次」→「解析一次」；`Setup.loadAll` 末尾 `clearCache` 释放解析树 | 解析次数/加载 **20→10**；解析段耗时 **~2.0×**（真实 4.63MB/10 文件） | ✅ Loader 只读不写、共享同实例安全；加载后无残留 ConfigurationSection 引用、释放安全 | （见下） |
 | R7 | 启动期 头颅贴图(PlayerSkin)去重缓存（加载期） | `Read.resolve` 对 skull_hash/skull/skull_url 按 (类型,材质) 缓存 `PlayerSkin`（3 分表，零命中分配）；`Setup.loadAll` 末尾 `clearSkinCache` 释放 | fromHashCode 工作次数/加载 **2684→2506**（去重 178，6.6%）；fromHashCode 段 **~1.4–1.5×** | ✅ PlayerSkin 不可变、共享安全；getItemStack 仍每次新建独立堆；Read 仅加载期用、释放安全 | （见下） |
+| R8 | 全维度最终扫描 + 作物收获 total 预算（运行期一致性） | `CropCfg.weightTotal` 在 `loadCrops` 期预算；`CropBlock.onBreak` 用预算值（对齐 R4，消除每次收获的求和 O(n)→O(1)）；复核 MobDrop/pushOutputs 确认已最优 | 加权选择 n=13（真实max）**~1.2×**、n=50（stress）**~1.7×** | ✅ total=Σweight 与原内联一致、分布不变；仅 24 加权作物生效、概率作物不受影响 | （见下） |
 
 ---
 
@@ -330,34 +331,79 @@ Python 扫描全部内容文件的 skull 解码：**3203 次 / 3021 唯一 → �
 
 ---
 
-## 闭合判定（R1–R7）
+---
+
+## 第 8 轮（2026-08-06）：全维度最终扫描 + 作物收获 total 预算（收敛轮）
+
+**范围**：R6/R7 后两维度趋收敛，本轮做**全维度最终扫描**——复核运行期是否有 R1–R5 未触及的同类热点，
+并扩展基准覆盖。发现一处 **R4 模式的一致性遗漏**并修复；确认其余路径已最优。
+
+### 最终扫描结论（逐一核实）
+
+| 路径 | 核查 | 结论 |
+|---|---|---|
+| `MobDropListener.onDeath` | 按实体类型 `Map` 索引（r5）+ `getById` O(1)（r4）+ 每掉落独立 `nextInt(100)<chance`（无需求和） | **已最优**，不改 |
+| `WTRecipe.pushOutputs` | `o.clone()` 必需（base 输出跨多次合成共享，`pushItem`/`setAmount` 会改堆）；`passed` 列表小；R5 已评估 | **R5 判断正确**，不改 |
+| `CropBlock.onBreak` 加权选择 | **每次收获都 `for(d) total+=weight` 重新求和**——R4 已把同样模式在 FishingListener 改为 load 期预算 `Bait.total`，此处遗漏 | **R4 一致性遗漏** → **本轮修复** |
+
+### 已落地：CropBlock 收获 total 预算（对齐 R4）
+
+- [Behaviors.CropCfg](../../../plugin/src/main/java/com/haiman233/worldtaste/behavior/Behaviors.java) 增 `weightTotal` 字段，
+  [loadCrops](../../../plugin/src/main/java/com/haiman233/worldtaste/behavior/Behaviors.java) 构建 weightedDrops 时累加预算。
+- [CropBlock.onBreak](../../../plugin/src/main/java/com/haiman233/worldtaste/items/CropBlock.java) 改用 `cfg.weightTotal`，消除每次收获的求和遍历。
+- **数据**：crops.yml 实测 142 作物中 **24 加权**（掉落表 min=2/max=13/avg=2.54）、118 概率（不经加权选择，不受影响）。
+
+### 安全性 / 保真度（红线核查）
+
+- **分布不变**：预算 `weightTotal = Σweight`（loadCrops 累加，仅含合法项，与原 onBreak 内联求和的 `drops` 列表同源），
+  `rnd.nextDouble()*total` 产出与原实现**逐字相同**的分布。`total<=0` 守卫、末项兜底语义不变。
+- **作用域**：仅 `weighted=true` 作物走该分支；概率作物走 `rnd.nextDouble()<chance` 独立滚动，不受影响。
+
+### 基准结果（`benchmark/`，`HarvestBench`）
+
+| 规模 | 旧（每次求和） | 新（load 期预算 total） | 加速 |
+|---|---|---|---|
+| n=13（真实 max） | ~37 ns | ~30 ns | **~1.2×** |
+| n=50（stress） | ~82 ns | ~49 ns | **~1.7×** |
+
+> 消除求和遍历（O(n)→O(1)）；加权选择本身的随机遍历（avg n/2）不可消除。收获为玩家破坏事件驱动（低频，同钓鱼），
+> **绝对收益小**；此为正确的 O(n)→O(1) 一致性消除（对齐 R4），零风险。
+
+### 验证
+- `./gradlew compileJava` 通过（仅有既存 deprecation 提示，r40 已审计）。
+- 基准 `javac src/*.java && java -Dstdout.encoding=UTF-8 -cp out bench.Main` 通过，sink 非零。
+
+---
+
+## 全维度收敛判定（R1–R8）
 
 | 维度 | 状态 |
 |---|---|
-| per-tick 热路径 | `findMatch`（R1/R2 大幅优化）、`CropBlock`（R3 验证已精简、Location 方案经实测劣化已拒）—— **覆盖** |
-| 事件驱动高频路径 | Fishing（R4 total 预算）、MobDrop（getById 已 O(1)）—— **覆盖** |
-| 低频运行期路径 | getDisplayRecipes（R5 缓存）、pushOutputs/FoodConsume/BlockBreak（评估不改）—— **评估完毕** |
-| 加载期路径 | YAML 解析缓存（R6：解析次数 20→10、~2×）；头颅贴图去重（R7：fromHashCode 2684→2506、~1.4×，受限于 6.6% 重复）；getItemStack（Bukkit，每唯一物品各一，不可约）；Material.matchMaterial（~ms 级，可忽略）—— **趋收敛** |
+| per-tick 热路径 | `findMatch`（R1/R2）、`CropBlock.tick`（R3）、`CropBlock.onBreak`（R8）—— **覆盖** |
+| 事件驱动路径 | Fishing（R4 total 预算）、MobDrop（已最优，r4/r5）、Consumable/BlockBreak（玩家事件驱动，已精简）—— **覆盖** |
+| 低频运行期路径 | getDisplayRecipes（R5 缓存）、pushOutputs（R5 评估 clone 必需不改）—— **评估完毕** |
+| 加载期路径 | YAML 解析缓存（R6）、头颅贴图去重（R7）—— **覆盖**；剩余为不可约唯一解码 + Bukkit getItemStack |
 
-**阶段性结论**：**运行期**热路径 R1–R5 已闭合；**加载期** R6（解析缓存 ~2×）+ R7（贴图去重 ~1.4×）已覆盖可优化项，
-剩余为不可约唯一解码 + Bukkit 内部 getItemStack。两维度均**趋收敛**。R8 将做全维度最终扫描确认（并扩展基准覆盖）。
-绝对 TPS/启动耗时仍需真实服务端实测（本环境无服务端）。
+**全维度收敛结论**：R1–R8 已覆盖**所有可静态分析 + 微基准化**的优化点（per-tick / 事件 / 低频 / 加载期），
+剩余均为**不可约**（唯一贴图解码、每物品必需的 ItemStack、加权选择的随机遍历、clone 必需的产出堆）或**需真实服务端 profile**才能显现的项（cargo 自动化、特定机器配方表的实机热点）。
+**静态性能优化全维度收敛。** 绝对 TPS/启动耗时仍需真实 Paper 1.21.11 + Slimefun4.1 + 美食家/异域花园 服务端实测（本环境无服务端，见 [../../server-verification-checklist.md](../../server-verification-checklist.md)）。
 
 ### 仍待（非静态优化可解）
-- **实机 TPS / 启动耗时验证**：绝对性能（高负载 TPS、启动秒数）需真实 Paper 1.21.11 + Slimefun4.1 + 美食家/异域花园 服务端实测
-  （本环境无法运行服务端，见 [../../server-verification-checklist.md](../../server-verification-checklist.md)）。微基准的相对加速比可外推方向，但不等于绝对值。
+- **实机 TPS / 启动耗时验证**：微基准的相对加速比可外推方向，但不等于绝对值。需真实服务端 profile。
 - 若实机 profile 显示新热点（如 cargo 自动化、特定机器配方表），可再开轮（届时需服务端数据，非静态可定夺）。
 
 ## 计划（多轮优化点，逐轮推进）
 
 - [x] **R1** 机器配方匹配（SF-id 预筛 + 闸门）—— **完成**
-- [x] **R2** findMatch 每 tick 分配消除（posOf 提升为不变量 int[]）—— **完成**
+- [x] **R2** findMatch 每 tick 分配消除（posBy 提升为不变量 int[]）—— **完成**
 - [x] **R3** CropBlock.tick（验证轮：Location 分配消除经实测劣化已拒绝；落地 growMsSteps 不变量预算）—— **完成**
 - [x] **R4** 事件驱动路径（Fishing total 预算；getById O(1) → MobDrop 缓存不必要）—— **完成**
-- [x] **R5** getDisplayRecipes 不变量缓存 + 低频路径评估 + **运行期闭合判定** —— **完成（运行期闭合）**
-- [x] **R6** 启动期 YAML 解析缓存（文件名缓存 parse-once + 加载后 clearCache 释放）—— **完成（加载期维度开启）**
-- [x] **R7** 启动期 头颅贴图(PlayerSkin)去重缓存（按 hash，实测重复率 6.6% 后落地 ~1.4×；dough 无内部缓存；getItemStack 不可约）—— **完成（加载期趋收敛）**
-- [ ] **R8**（候选）全维度最终扫描 + 基准覆盖扩展（MobDrop/BlockDrops/Consumable 路径）；确认无可优化则宣告全维度收敛
+- [x] **R5** getDisplayRecipes 不变量缓存 + 低频路径评估 + 运行期闭合判定 —— **完成**
+- [x] **R6** 启动期 YAML 解析缓存（文件名缓存 parse-once + 加载后 clearCache 释放）—— **完成**
+- [x] **R7** 启动期 头颅贴图(PlayerSkin)去重缓存（按 hash，实测重复率 6.6% 后落地 ~1.4×）—— **完成**
+- [x] **R8** 全维度最终扫描 + 作物收获 total 预算（对齐 R4，~1.2×/1.7×）+ **全维度收敛判定** —— **完成（全维度收敛）**
 - [ ] ~~（候选）`Material.matchMaterial` 名称缓存~~ —— ~ms 级、可忽略，剔除
+- [ ] ~~R8 后续静态轮次~~ —— 无预期产出；剩余为实机 profile 驱动
 
-> 闭合判据：R1–R5 运行期闭合；R6–R7 加载期趋收敛（剩余为不可约唯一解码 + Bukkit 内部 getItemStack）。R8 做最终确认扫描。
+> 收敛判据：R1–R8 覆盖全部可静态分析+微基准化的优化点（per-tick/事件/低频/加载期），剩余均不可约或需服务端 profile。
+> **静态性能优化全维度收敛。** 后续若实机 profile 发现新热点可再开轮。

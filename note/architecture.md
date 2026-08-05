@@ -95,3 +95,5 @@ scripts/
   `Setup.loadAll` 末尾 `clearCache` 释放解析树（长稳，R6）；`Read.resolve` 对头颅贴图(PlayerSkin)按 (类型,材质) 去重缓存（实测重复率 ~6%，
   dough 无内部缓存，R7），加载后 `clearSkinCache` 释放。
 所有优化均行为保持（对齐 RSC 保真度）、零回归，逐轮附基准前后对比。
+- **R8 全维度最终扫描**：复核 MobDrop（已最优）/pushOutputs（R5 判断正确）/CropBlock.onBreak（修复 R4 遗漏：收获加权选择 total 改用 load 期预算）；
+  **静态性能优化全维度收敛**（per-tick/事件/低频/加载期均已覆盖，剩余为不可约项或需实机 profile）。

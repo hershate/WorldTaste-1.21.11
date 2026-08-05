@@ -5,7 +5,7 @@
 > 每轮：编写/更新 `benchmark/` 测试程序量化前后性能 → 生成对比报告到本目录 → 更新 note 其它内容 → 细粒度 commit。
 > 只维护**插件版本**（plugin/）。
 >
-> 状态文件：本文件记录每轮结论与累计修复，供 /loop 持续优化跨轮续作。当前版本基线 `1.8.3-standalone`。
+> 状态文件：本文件记录每轮结论与累计修复，供 /loop 持续优化跨轮续作。当前版本基线 `1.8.9-standalone`。
 
 ## 方法论与诚实声明
 
@@ -27,6 +27,7 @@
 | R3 | CropBlock.tick（验证轮 + 微优） | `CropBlock` 预算 `growMsSteps`（不变量，避免每 tick 8 次乘法） | 微（生长作物每 tick 省 8 乘法）；**Location 分配消除方案经实测为 CPU 劣化（0.54×）已拒绝** | ✅ 行为逐字一致（double 阈值保精确语义） | （见下） |
 | R4 | 事件驱动路径 | `FishingListener` 把权重 `total` 提至 load 期 `Bait.total`（每次钓获求和→O(1)）；核查确认 `getById` 已 O(1) → MobDrop 缓存不必要 | Fishing select **~1.7×**（138→82 ns；余为加权遍历） | ✅ 行为不变（total 预算、RNG 不变） | （见下） |
 | R5 | 不变量展示列表 + 闭合 | `WTRecipeMachine.getDisplayRecipes` 缓存展示列表（同 R2「提升不变量」原则）；评估 pushOutputs 等低频路径不予改 | getDisplayRecipes **~90×**/次（269→3 ns；指南低频，绝对小） | ✅ recipes 不变，缓存安全 | （见下） |
+| R6 | **启动期** YAML 解析缓存（新维度：加载期，R1–R5 未覆盖） | `Yaml.loadResource` 文件名缓存：preloadDisplays + 各 Loader 共 10 个内容文件由「解析两次」→「解析一次」；`Setup.loadAll` 末尾 `clearCache` 释放解析树 | 解析次数/加载 **20→10**；解析段耗时 **~2.0×**（真实 4.63MB/10 文件） | ✅ Loader 只读不写、共享同实例安全；加载后无残留 ConfigurationSection 引用、释放安全 | （见下） |
 
 ---
 
@@ -203,28 +204,96 @@
 - **`FoodConsumeListener` / `BlockBreak`（CropListener/BlockDrops）**：玩家/挖掘事件驱动，频率受玩家行为而非 tick 上限约束，
   当前实现（加权/概率掷一次、按实体类型索引）已精简。不改。
 
-## 闭合判定（R1–R5 收敛）
+---
+
+## 第 6 轮（2026-08-06）：启动期 YAML 解析缓存（新维度：加载期）
+
+**范围**：R1–R5 全部聚焦**运行期热路径**（per-tick / 事件 / 低频），**启动/加载期**维度此前未覆盖——
+R3 曾明确放弃此方向（「加载主体代价是 preloadDisplays 内 PlayerSkin.fromHash 头颅解码……非清晰可基准化的优化点」）。
+本轮重新打开**加载期**维度中**可清晰量化**的部分：YAML 文件的**重复解析**。
+
+### 热点分析（为何是它）
+
+- [Setup.preloadDisplays](../../../plugin/src/main/java/com/haiman233/worldtaste/load/Setup.java) 把 10 个内容文件
+  （[ITEM_FILES](../../../plugin/src/main/java/com/haiman233/worldtaste/load/Setup.java)）各 `Yaml.loadResource` 解析一次，仅为构建
+  跨文件 `material_type:slimefun` 引用所需的 `WT.preload` 展示堆。
+- 随后各 Loader（ItemsLoader/FoodsLoader/MobDropsLoader/RecipeMachineLoader/MultiBlockLoader/TemplateLoader/WorkbenchLoader/GeoLoader）
+  对**同一文件再次 `Yaml.loadResource` 解析一次**。
+- 结果：**10 个内容文件每个被解析两次**，含 items.yml(**2.5MB**)、mb_machines.yml(**1.8MB**)、linked_recipe_machines.yml(148KB)、
+  recipe_machines.yml(190KB) 等——共 ~4.9MB YAML 被重复解析（+ 重复的 jar 资源 InputStream 读取）。
+- 加载虽为一次性（info.yml 自述 1~3 分钟），但服务器定期重启/崩溃恢复时直接计入停机时间；消除重复解析是确定性、零风险的收益。
+
+### 优化设计：文件名缓存（parse-once）+ 加载后释放
+
+1. **[Yaml.loadResource](../../../plugin/src/main/java/com/haiman233/worldtaste/load/Yaml.java) 文件名缓存**：静态 `Map<String,YamlConfiguration>`，
+   首次访问解析并入缓存，后续同文件访问为 HashMap 命中。透明适用于全部调用方，无一处需改动。
+2. **`Yaml.clearCache()` + [Setup.loadAll](../../../plugin/src/main/java/com/haiman233/worldtaste/load/Setup.java) 末尾释放**：
+   加载完毕释放解析树（长稳：避免长期持有 ~MB 级解析对象树）。
+
+### 安全性 / 保真度（红线核查）
+
+- **共享同实例安全**：grep 全插件 `y.set(`/`section.set(`/`config.set(` **零命中**——全部 Loader 仅**读取**配置
+  （`getKeys`/`getConfigurationSection`/`getString`/`getInt`…），从不写入。故跨 preloadDisplays 与各 Loader 共享同一 `YamlConfiguration`
+  实例**行为完全等价**（无人依赖实例身份或对其进行修改）。
+- **释放安全**：grep `ConfigurationSection|YamlConfiguration` 字段声明——**全部为方法内局部变量**，无任何 Loader 以字段形式持久持有。
+  加载后领域对象（SlimefunItem / WTRecipe / Behaviors 配置 / WT.preload 堆 / BlockDrops 等）均不再引用原始解析树，
+  `registerListeners` 也不再访问 YAML → 末尾 `clearCache` **不释放任何仍被引用的对象**。
+- **缺失/异常资源**：仍返回空 `YamlConfiguration`（缓存空配置与旧「每次返回新空配置」行为等价）。
+- **行为保真**：解析产物（配置树内容）与旧实现逐字一致，仅复用而非重建；不改变任何加载结果。
+
+### 基准结果（`benchmark/`，`LoadBench`，真实 10 文件 4.63MB）
+
+| 指标 | 旧（每文件解析两次） | 新（文件名缓存） | 结论 |
+|---|---|---|---|
+| 解析次数 / 次加载（生产同构） | 20 | **10** | 消除 10 个文件的重复解析 |
+| 解析段总耗时（50 次加载） | ~1129 ms | ~558 ms | **~2.0×**（如预期：解析工作量减半） |
+
+> 数据源为仓库根的**真实内容文件**（items.yml 2.5MB、mb_machines.yml 1.8MB 等），非合成。`parseFile()` 按 SnakeYAML
+> 主导代价结构建模（逐行扫描 + 每行提取键并写入 HashMap，真实读全字符 + 真实 String/Map 分配，不可被 JIT 常量折叠）；
+> 主指标「解析次数/加载」与生产端 SnakeYAML 解析次数同构。生产端另省去**重复的 jar 资源 InputStream 读取**（基准保守未计）。
+>
+> **诚实声明**：R3 既有结论仍成立——加载的**绝对主体代价**是头颅贴图解码 `PlayerSkin.fromHash`（数千个 skull_hash 物品），
+> 本轮为对其之外的**解析冗余**做确定性消除；绝对启动耗时仍以真实服务端为准（本环境无服务端）。
+
+### 验证
+- `./gradlew compileJava` 通过（仅有既存的 deprecation 提示，非本次引入）。
+- 基准 `javac src/*.java && java -Dstdout.encoding=UTF-8 -cp out bench.Main` 通过，sink 非零。
+
+### 下一轮候选（加载期维度未尽）
+- **头颅贴图解码去重**：若多个物品/配方槽复用同一 skull_hash，`PlayerSkin.fromHash` 会被重复调用；可缓存 `hash→PlayerSkin`。
+  需先 grep 实测 hash 重复率（若近全唯一则无收益）。这是加载期**绝对主体**代价，潜在收益 > R6。
+- **`Material.matchMaterial` 名称缓存**：items/recipes 解析期对重复材质名反复 `matchMaterial`（含 legacy 查找）。
+
+---
+
+## 闭合判定（R1–R6）
 
 | 维度 | 状态 |
 |---|---|
 | per-tick 热路径 | `findMatch`（R1/R2 大幅优化）、`CropBlock`（R3 验证已精简、Location 方案经实测劣化已拒）—— **覆盖** |
 | 事件驱动高频路径 | Fishing（R4 total 预算）、MobDrop（getById 已 O(1)）—— **覆盖** |
-| 低频/启动路径 | getDisplayRecipes（R5 缓存）、pushOutputs/FoodConsume/BlockBreak（评估不改）、加载期头颅解码（单趟 Bukkit 内部）—— **评估完毕** |
+| 低频运行期路径 | getDisplayRecipes（R5 缓存）、pushOutputs/FoodConsume/BlockBreak（评估不改）—— **评估完毕** |
+| 加载期路径 | YAML 解析缓存（R6：解析次数 20→10、~2×）；头颅贴图解码 `PlayerSkin.fromHash`（R3 标注为加载**绝对主体**代价，**待 R7 评估去重**）—— **进行中** |
 
-**结论**：所有可静态分析+微基准化的热路径均已覆盖。R3/R4/R5 连续表明优化空间趋于饱和（per-tick 路径已优化或验证无头寸；
-事件/低频路径要么已 O(1)/已预算、要么频率受限收益微小）。**静态性能优化闭合。**
+**阶段性结论**：R1–R5 已闭合**运行期**热路径（per-tick / 事件 / 低频）；R6 打开并处理了**加载期**维度的解析冗余。
+R3/R4/R5 连续表明**运行期**优化空间饱和；但**加载期**仍有候选（头颅解码去重——为加载绝对主体代价，潜在收益 > R6），
+故加载期维度**尚未闭合**，R7 继续。绝对 TPS/启动耗时仍需真实服务端实测（本环境无服务端）。
 
 ### 仍待（非静态优化可解）
-- **实机 TPS 验证**：绝对性能（高负载 TPS、GC 表现）需真实 Paper 1.21.11 + Slimefun4.1 + 美食家/异域花园 服务端实测
-  （本环境无法运行服务端，见 [../../server-verification-checklist.md](../../server-verification-checklist.md)）。微基准的相对加速比可外推方向，但不等于绝对 TPS。
+- **实机 TPS / 启动耗时验证**：绝对性能（高负载 TPS、启动秒数）需真实 Paper 1.21.11 + Slimefun4.1 + 美食家/异域花园 服务端实测
+  （本环境无法运行服务端，见 [../../server-verification-checklist.md](../../server-verification-checklist.md)）。微基准的相对加速比可外推方向，但不等于绝对值。
 - 若实机 profile 显示新热点（如 cargo 自动化、特定机器配方表），可再开轮（届时需服务端数据，非静态可定夺）。
 
-## 计划（多轮优化点，逐轮推进直至闭合）
+## 计划（多轮优化点，逐轮推进）
 
 - [x] **R1** 机器配方匹配（SF-id 预筛 + 闸门）—— **完成**
 - [x] **R2** findMatch 每 tick 分配消除（posOf 提升为不变量 int[]）—— **完成**
 - [x] **R3** CropBlock.tick（验证轮：Location 分配消除经实测劣化已拒绝；落地 growMsSteps 不变量预算）—— **完成**
 - [x] **R4** 事件驱动路径（Fishing total 预算；getById O(1) → MobDrop 缓存不必要）—— **完成**
-- [x] **R5** getDisplayRecipes 不变量缓存 + 低频路径评估 + **闭合判定** —— **完成（静态优化闭合）**
+- [x] **R5** getDisplayRecipes 不变量缓存 + 低频路径评估 + **运行期闭合判定** —— **完成（运行期闭合）**
+- [x] **R6** 启动期 YAML 解析缓存（文件名缓存 parse-once + 加载后 clearCache 释放）—— **完成（加载期维度开启）**
+- [ ] **R7**（候选）头颅贴图解码去重（`PlayerSkin.fromHash` 按 hash 缓存；加载绝对主体代价）—— **待实测 hash 重复率**
+- [ ] （候选）`Material.matchMaterial` 名称缓存（加载期重复材质名查找）
 
-> 闭合判据：可优化热路径均已覆盖，且新增轮次连续无收益（参照 security-audit 的收敛模式）。
+> 闭合判据：R1–R5 闭合的是**运行期**热路径（连续无收益）；R6 开启**加载期**维度并消除解析冗余——加载期仍有候选（头颅解码去重），
+> 故**未闭合**，按用户「持续优化直到无可优化」要求继续推进。

@@ -87,7 +87,10 @@ scripts/
 
 ## 5. 性能优化（独立插件版，持续进行）
 
-独立插件的性能热路径优化逐轮记录于 [report/perf/PERF-AUDIT.md](report/perf/PERF-AUDIT.md)，配套微基准在仓库根 `benchmark/`。
-已落地：**R1 机器配方匹配**——`WTRecipeMachine.findMatch` 对纯-SF 机器启用 SF-id 预筛（每 tick 每输入槽仅解析一次 SF id，
-用「两端均 SF 且 id 不同」的廉价必要条件跳过昂贵的 `isItemSimilar`/`getByItem`），机器级闸门保证非-SF 机器零回归。
-优化不改任何匹配结果（仅跳过确定不匹配者），完整保留 RSC 保真度。
+独立插件的性能优化逐轮记录于 [report/perf/PERF-AUDIT.md](report/perf/PERF-AUDIT.md)，配套微基准在 [benchmark/](../benchmark/)。
+覆盖两条维度：
+- **运行期热路径（R1–R5，已闭合）**：per-tick `WTRecipeMachine.findMatch`（SF-id 预筛 + 机器级闸门、posBySlot 不变量）、
+  `CropBlock.tick`（growMsSteps 不变量；Location 分配消除方案经实测劣化已拒）、事件驱动（Fishing total 预算）、低频（getDisplayRecipes 缓存）。
+- **加载期（R6 起，进行中）**：`Yaml.loadResource` 文件名缓存——`preloadDisplays` 与各 Loader 共 10 个内容文件由「解析两次」→「解析一次」，
+  `Setup.loadAll` 末尾 `clearCache` 释放解析树（长稳）。
+所有优化均行为保持（对齐 RSC 保真度）、零回归，逐轮附基准前后对比。

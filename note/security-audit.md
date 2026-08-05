@@ -146,3 +146,22 @@
 | `CropBlock` 重启后作物回退到 age 0？ | 原 `wt_crop.js` 同样用内存 `HashMap`（`lastUseTimes`/`giftif`），重启同样重置生长时序。 | **非 bug（设计一致）**：端口与原脚本均为内存态时序、重启重置生长；端口的 `setStage(0)` 仅是「立即重置」vs 原脚本「延迟经 handleGrowth 重算」的时序差异，终态一致。真正持久化需把时序写入 BlockStorage（属功能增强，会偏离原版）。 |
 
 > 收获：三处疑似问题经源码级核查均排除。代码层面的高产出审查已趋于饱和（r1–r5 已修复 ~12 处）。后续价值主要在**实机加载验证**与**内容数据补全**（2 个未定义 id），非代码缺陷。
+
+## 第 7 轮（2026-08-05）：菜单槽位 ↔ 机器槽位一致性 + r1–r6 回归复核
+
+**范围**：跨文件核查 menus.yml 装饰槽 ↔ 各机器 input/output/click/templateSlot 是否对齐/越界；复核 r1–r6 自身改动有无回归。
+
+### 已修复
+
+| # | 严重度 | 位置 | 缺陷 | 后果 | 修复 / commit |
+|---|---|---|---|---|---|
+| 13 | 🟠 越界 | `WTRecipeMachine.constructMenu` | 背景填充循环用 `size=27`（menus.yml 全文件**无 size 声明**），而 `BlockMenuPreset` 按**已放置物品**自动定尺寸；`output` 槽只挂 click handler 不放置物品 → 若功能槽超出装饰槽最大值，预设自动尺寸不覆盖该槽 | 该槽 `getItemInSlot`/`consumeItem` 越界（机器无对应菜单或菜单装饰未覆盖高槽时触发） | 填充尺寸改为覆盖 `max(input/output/progress/extra/装饰)` 向上取整到 9 的倍数（≤54）— `94a9b0b` |
+
+> 当前数据一致（menus 装饰到 53、机器槽 ≤49），故 #13 为**潜伏加固**：仅在「机器无对应菜单」或「菜单装饰未覆盖高功能槽」时才会触发越界，现数据不触发；修复避免未来配置变更引入崩溃。
+
+### 复查确认（本轮无问题项）
+- **数据一致性**：menus.yml 装饰槽最高到 53，各机器 input/output 槽最大 49（linked）/43/36——装饰覆盖功能槽，当前不越界。
+- **r1–r6 回归复核**：逐项复核 12 处改动——`Stacks.consumeOne*`（到 0 清空 + null 安全）、`findMatch/consumeMatch` 拆分（`chosen` 索引语义正确、tick 路径行为不变）、`WTWorkbench.craft` 顺序、`parseSlots` 区间校验、`loadCrops` 类型守卫、MobDrop Map 索引——**均无回归**，编译通过。
+
+### 仍待
+- 实机加载验证；2 个未定义 id 由内容作者补全。

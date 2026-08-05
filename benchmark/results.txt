@@ -1,0 +1,16 @@
+WT recipe-match microbenchmark
+warmup...
+warmup done
+
+scenario                           gate | case     in#  | Linear(cur): ns sim | Optimized: ns sim res  | speedup
+------------------------------------------------------------------------------------------------------------------------
+SHUIZUXIANG 78 单输入·原版材质        g=off |  noMatch d=1 | ns=   880 sim=  78 | = Linear (gate off)  | 1.00x
+SHUIZUXIANG 78 单输入·原版材质        g=off |  hitLast d=1 | ns=  1381 sim=  79 | = Linear (gate off)  | 1.00x
+HWSCPCLJ 31 单输入·SF头颅           g=ON  |  noMatch d=1 | L:ns=  9206 sim=  31 | O:ns=   439 sim=   0 res=1 | 20.97x
+HWSCPCLJ 31 单输入·SF头颅           g=ON  |  hitLast d=1 | L:ns=  9497 sim=  32 | O:ns=  1112 sim=   2 res=1 | 8.54x
+FUHUASHI 22 双输入·混合             g=off |  noMatch d=2 | ns= 13137 sim=  88 | = Linear (gate off)  | 1.00x
+FUHUASHI 22 双输入·混合             g=off |  hitLast d=2 | ns=  7638 sim=  89 | = Linear (gate off)  | 1.00x
+STRESS 200 单输入·SF头颅            g=ON  |  noMatch d=1 | L:ns= 62480 sim= 200 | O:ns=  2369 sim=   0 res=1 | 26.37x
+STRESS 200 单输入·SF头颅            g=ON  |  hitLast d=1 | L:ns= 60723 sim= 201 | O:ns=  3016 sim=   2 res=1 | 20.13x
+
+(busywork sink=1689476553731771 —— 非零证明代价未被死码消除)

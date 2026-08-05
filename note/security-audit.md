@@ -711,3 +711,13 @@
 
 ### 阶段状态
 累计 **22 bug 修复 + 1 死状态清理 + 41 轮核查**，版本 `1.8.3-standalone`。引用完整性维度（material 引用 r5、recipe_type r16、脚本 r13/r15、id_alias r18、item_group r41）均已系统覆盖且清洁。
+
+## 第 42 轮（2026-08-05）：作物掉落物 id 可解析性核查（验证轮）
+
+> 核查 crops.yml 的 drops/weightedDrops 的 id 是否全部可解析（未定义→`CropBlock.dropItem` 记日志返回→收获静默无产出）。**验证轮：无缺陷、无代码改动**。
+
+### 复查确认（本轮无问题项——附证据）
+- **Python(PyYAML) 扫描** crops.yml 全部 **361 个掉落项**，均为 WT_* id，逐一对照 WorldTaste 定义集（10 内容文件顶层键 ∪ id_alias）→ **全部已定义**。无作物因掉落物未定义而静默无产出。（跨插件 GN_* 与原版材质由运行期 `SlimefunItem.getById`/`Material.matchMaterial` 解析，静态不判。）
+
+### 阶段状态
+累计 **22 bug 修复 + 1 死状态清理 + 42 轮核查**，版本 `1.8.3-standalone`。掉落物可解析性维度（作物 r42、钓鱼 r9、mob_drops 自定义）均清洁。

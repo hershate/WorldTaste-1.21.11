@@ -207,3 +207,32 @@
 
 ### 审查闭环声明（r1–r10）
 静态审查已**全面完成并闭环**，覆盖：代码（~40 文件，14 处修复）、行为数据（consumables/fishing/crops 忠实）、打包（完整、拾取改动）。后续静态轮次不再有预期产出；剩余工作明确为**实机加载验证**（需真实 MC 服务端，本环境不可行）与**内容作者补全**（2 个未定义 id、items.yml 配方数据）。
+
+## 第 11 轮（2026-08-05）：玩家输入信任 & 事件重入/并发（用户重启审查）
+
+> 用户以 /loop 重启持续审查，明确新约束：**视为暴露于网络服务、不得信任任何用户输入（修改版客户端可发任意协议包/伪造事件/篡改 NBT）、长时间高负载多用户高频下的稳定性**。本轮聚焦此前未深入的「**输入信任边界 + 事件重入/并发**」角度，逐路径核对玩家可触发路径读取的是**服务端真实状态**而非事件/客户端提供数据，并排查重入/竞态导致的数据操作问题。
+
+### 已修复
+
+| # | 严重度 | 位置 | 缺陷 | 后果 | 修复 / commit |
+|---|---|---|---|---|---|
+| 15 | 🟡 逻辑 | `CropBlock.onBreak` 加权掉落 | 加权选择无 `total<=0` 守卫、无末项回退；权重全非正(脏数据)或浮点边界时循环走完**不产出任何掉落** | 成熟作物破坏偶发/脏数据下空掉落（与 `FishingListener.select` 行为不一致） | 补 `total<=0` 守卫 + 末项回退，对齐 `FishingListener.select` — `e894e59` |
+
+### 复查确认（本轮无问题项——附证据，防后续误改）
+
+- **副手 `ItemUseHandler` 派发 × 特殊物品手检查**：经核 Slimefun `SlimefunItemInteractListener`（[REF .../SlimefunItemInteractListener.java:75,104-111](../REF/RykenSlimeCustomizer-1.21.11/REF/Slimefun4.1/src/main/java/io/github/thebusybiscuit/slimefun4/implementation/listeners/SlimefunItemInteractListener.java)）**会对副手右键派发** `ItemUseHandler`（取 `e.getItem()`=所用那只手）。但：
+  - `CloudBottleItem`（[SpecialItems.java:46-50](../plugin/src/main/java/com/haiman233/worldtaste/items/SpecialItems.java)）虽无 `getHand()` 检查，其「副手不能持粘液物品」校验在**瓶子位于副手**时恰好为真（瓶子本身是 SF 物品）→ 提前 return，**不会误耗主手物品**。
+  - `GiantPillItem`（[SpecialItems.java:79](../plugin/src/main/java/com/haiman233/worldtaste/items/SpecialItems.java)）用 `e.getHand()!=HAND` 显式守卫。
+  - 结论：两者均无「副手放置、误耗主手」的吞物品风险。**非 bug**。
+- **`foodOnEat` 链路完整（非死代码）**：`Behaviors.foodOnEat` 由 [FoodsLoader.java:52-56](../plugin/src/main/java/com/haiman233/worldtaste/load/FoodsLoader.java) 在 foods.yml 物品带 `script` 时，从 `Behaviors.consumables[script]` 中 `kind: eat`（`use=false`）条目填充，键为食物 effId；`Setup.loadAll` 中 `Behaviors.loadData` 先于 foods 执行，查表时机正确。`FoodConsumeListener` 正常生效。
+- **消耗/钓鱼路径读服务端状态、非客户端数据**：`ConsumableItem`/`FishingListener`/`SpecialItems` 均用 `inv.getItemInMainHand()/getOffHand()`（服务端背包真值），未用 `event.getItem()` 等可伪造来源；钓竿/鱼饵/瓶子均经 `SlimefunItem.getByItem/getById` 按 SF id 识别，修改版客户端无法伪造 SF id（持久化数据容器，服务端写入）。**输入可信**。
+- **多方块机 `return` vs `continue`**：[WTMultiBlockMachine.onInteract](../plugin/src/main/java/com/haiman233/worldtaste/machines/WTMultiBlockMachine.java) 在「事件取消/不能用/背包满」处 `return` 而非 `continue`；但 `isCraftable` 已按输入唯一锁定配方，且 `Map<ItemStack[],ItemStack>` 无重复输入键，故同输入下仅一条配方命中，`return`/`continue` 行为等价。**非 bug**。
+- **机器合成输入「随操作吞入」**：[WTRecipeMachine.tick](../plugin/src/main/java/com/haiman233/worldtaste/machines/WTRecipeMachine.java) 在 `findNextRecipe` 即消耗输入并 `startOperation`；中途断电/破坏则输入随内存态 operation 丢失——等同上游 AContainer（不持久化合成进度），r6 已核。**非 bug（上游固有设计）**。
+- **重入/并发**：Bukkit 玩家事件（右键/破坏/钓鱼/点击）均主线程同步派发，单处理器 lambda 原子执行到底，无中途让出；机器 tick（AContainer `isSynchronized`）亦主线程。`active` 为 `ConcurrentHashMap`、`findMatch` 含 `stillValid` 实时复校，作异步防御。`ConsumableOpts.potions` 为 `final ArrayList` 初始化、永不为 null。**无可利用重入/竞态**。
+- **`ignoreCancelled` 一致性**：Crop/MobDrop/BlockDrops/Fishing/FoodConsume 五个监听器均 `ignoreCancelled=true`，领地/保护插件取消破坏或钓鱼事件时**不触发**自定义掉落 ✓。
+
+### 待办（后续轮次）
+- **数据一致性轮**：核查「作物成熟材质 × `BlockDrops.drop_from`」是否存在双重掉落——若某作物成熟后材质为 W（如 WHEAT），且 items.yml 有针对 W 的 `drop_from` 条目，则玩家破坏该成熟作物会**同时**触发 `CropListener`（作物掉落）与 `BlockDrops`（材质掉落）。需 grep items.yml 核查有无此类材质重叠。
+- **巨人丸 `spawnEntity` 绕过领地保护**（r2 todo）：评估接入 `Slimefun.getProtectionManager()` 校验后再生成 GIANT。
+- **`Read.java` 内容解析信任边界**：undefined id 回退 STONE、recipe/数量解析边界的专门核查（下一轮）。
+- **高负载机器配方匹配性能**：空闲早返回已加（r5）；超大配方表机器的 O(配方×槽位)/tick 实测评估（需实机）。

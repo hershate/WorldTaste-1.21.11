@@ -60,3 +60,26 @@
 - `WTMultiBlockMachine.dispenserFaceGet()` 的 EAST/WEST 方位映射疑似水平翻转——需结合实机多方块结构核对（不臆测改动）。
 - `GiantPillItem` 召唤 GIANT 未做区域保护校验（spawnEntity 绕过领地插件）——评估是否加 `ProtectionManager` 校验。
 - 多方块机 `getContents()` 快照写回脆弱性（上游共有）。
+
+## 第 3 轮（2026-08-05）：load 包健壮性与 GEO/多方块核查
+
+**范围**：`Yaml`/`FoodHelper`/`RegisterConditions`/`RecipeTypes`/`MobDropsLoader`/`MenuLoader`/`GeoLoader`/`WTGeoResource`。重点：加载期异常路径、unchecked cast NPE、反射容错、配置解析边界。本轮为**健壮性确认**为主。
+
+### 已修复
+
+| # | 严重度 | 位置 | 缺陷 | 后果 | 修复 / commit |
+|---|---|---|---|---|---|
+| 8 | 🟡 故障隔离 | `MenuLoader.parseSlots` | 反转区间 `17-10` 使 `new int[hi-lo+1]` 抛 `NegativeArraySizeException`，非 `NumberFormatException`、逃出 catch，连累**整个菜单**注册失败 | 一个坏槽位范围杀死整个菜单 | 加 `lo>=0 && hi>=lo` 校验，非法返回空数组仅跳过该槽 — `03ecfa4` |
+
+### 复查确认（本轮无问题项）
+- **`Yaml.loadResource`**：资源缺失/IO 异常均 `try-with-resources` + 返回空 `YamlConfiguration`，不崩启动。
+- **`FoodHelper.apply`**：反射实例化 `CraftFoodComponent` 全程 `try/catch Throwable`，失败返回 false（上层记 severe 告警），不抛出；`stack.editMeta` 包裹安全。
+- **`RegisterConditions`**：`version`/`hasplugin`/`itemexist`/`config.*` 解析容错，异常返回 true（不误杀注册）；`Bukkit.getMinecraftVersion()` 经编译验证可用。
+- **`RecipeTypes.resolve`**：自定义→标准常量→NULL 回退，未知类型记日志。
+- **`MobDropsLoader`**：`chance` 默认 0、`entity` null 跳过；用 effId 记录（与监听器 `getById` 对齐）。
+- **并发**：所有静态注册表（`Behaviors.*`/`BlockDrops.MAP`/`MobDropsLoader.drops`/`FishingListener.baits`）均在 `Setup.loadAll`（启动期）填充、运行期只读，主线程访问，无竞态。
+
+### 设计核查（确认非 bug，不擅改）
+- **GEO 资源绑定**：`GeoLoader` 将 `WT.preload`（无 SF id 绑定的展示堆）传给 `WTGeoResource.getItem()`。`WUWEI_GEOYAN` 在 items.yml 被引用 271 次作配方材料——经分析，配方 `need` 与 GEO 产出物**同源于 preload**，`isItemSimilar` 两端一致可匹配，内部自洽。改用绑定版反而会打破匹配，**保持现状**。
+- **`WTGeoResource` 注册**：`implements GEOResource`（独立 GEO 注册表，NamespacedKey 键），与 `ItemsLoader.register` 的 SlimefunItem 注册（Slimefun id）分属不同注册表，**无双重注册冲突**。
+- **`WTMultiBlockMachine.dispenserFaceGet`**：取样 `WUWEI_JYKRL`（work=5/SMOKER，DISPENSER 在 slot 8=center+3）返回 `DOWN`，`block.getRelative(DOWN)` 取下方发射器，**几何正确**；UP/DOWN 分支不受旋转影响。EAST/WEST 水平分支在实测配置中未见使用（dispenser 均为纵向），**保持现状**，待实机若出现横向 dispenser 再核。

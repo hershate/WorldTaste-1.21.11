@@ -108,3 +108,27 @@
 - 玩家背包消耗点已全部收敛到 `Stacks.consumeOne*`（5 处幽灵物品修复）。
 - 所有内容/行为加载器现已统一具备逐条 try/catch 故障隔离。
 - 仍待：实机加载验证；`data/*.yml` 与内容 YAML 的跨文件一致性（如未定义 id 引用）；高负载下机器配方匹配性能（O(配方×槽位)/tick）评估。
+
+## 第 5 轮（2026-08-05）：高负载性能热路径 + 跨文件 id 一致性
+
+**范围**：tick/死亡热路径性能优化；全内容 YAML 的 `WT_*` 引用 vs 定义一致性扫描。对齐用户「长时间高负载、多用户高频」诉求。
+
+### 已优化（性能，行为不变）
+
+| # | 位置 | 问题 | 优化 / commit |
+|---|---|---|---|
+| 11 | `WTRecipeMachine.findMatch` | 空闲机器(输入槽全空)每 tick 仍遍历全部配方并做昂贵 `isItemSimilar`，大量空闲方块显著占 TPS | 输入槽全空时早返回 null（注册配方至少含 1 个非空输入，短路安全）— `2bdd37c` |
+| 12 | `MobDropsLoader.drops` / `MobDropListener.onDeath` | 每次生物死亡线性扫描全部 106 条掉落；刷怪塔高频死亡场景开销大 | 改为 `Map<实体类型, List<Drop>>`，监听器 `get(type)` 直接查表，O(该类型) 取代 O(全部) — `ea8ef91` |
+
+### 跨文件 id 一致性扫描（数据层，仅核查不臆改）
+- 扫描全部内容 YAML 的 `material: WT_*`（material_type:slimefun）引用，与「各 item 定义文件顶层 key ∪ id_alias」比对。
+- **结果：仅 `WT_XIANGYUNCF`（items.yml + recipe_machines.yml×2 引用）与 `WT_XUECHENGGQ`（mb_machines.yml 引用）无定义**——与 [standalone-plugin.md](standalone-plugin.md) 已记录的 2 个缺口完全一致，**无新增缺口**。
+- 运行期：`Read.resolve` 对二者记 warning 并回退 STONE（指南显示为石头、相关配方输入/输出失效），不影响加载与其余内容。属内容数据缺口，需作者补定义或更正 id（不臆测）。
+
+### 验证
+- `./gradlew compileJava` 通过。
+- 一致性扫描为只读核查，未修改任何内容 YAML。
+
+### 仍待
+- 实机加载验证（本环境无法运行服务端）。
+- 上述 2 个未定义 id 由内容作者处理。

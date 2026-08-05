@@ -2,6 +2,7 @@ package com.haiman233.worldtaste.behavior;
 
 import com.haiman233.worldtaste.WT;
 import com.haiman233.worldtaste.load.Yaml;
+import com.haiman233.worldtaste.util.Stacks;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItem;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -72,8 +73,9 @@ public final class FishingListener implements Listener {
         if (stack == null) return;
 
         e.setCancelled(true);
-        ItemStack off = p.getInventory().getItemInOffHand();
-        if (off != null) off.setAmount(off.getAmount() - 1);
+        // 鱼饵耗尽到 0 必须清空副手槽位：否则残留 0 数量幽灵物品仍被识别为该鱼饵，
+        // 玩家可无消耗无限钓获（复制漏洞）。
+        Stacks.consumeOneInOffHand(p.getInventory());
         e.getCaught().remove();
 
         stack.setAmount(1);

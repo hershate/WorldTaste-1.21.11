@@ -366,3 +366,19 @@
 - **实机验证 #18**：`FoodComponent(nutrition=0, canAlwaysEat=true)` 在 Paper 1.21.11 是否确可食（canAlwaysEat 通常允许 0 营养食物），需真实服务端确认；若不可食则回退为「默认营养 1」方案。
 - **版本号**：r11–r17 累计 18 处修复，建议审查周期结束后统一升版并写 release note（当前仍为 `1.8.2-standalone` 基线）。
 - 内容保真度/实机加载验证（需服务端）。
+
+## 第 18 轮（2026-08-05）：注册门控逻辑 + id_alias 变体模式（验证轮）
+
+> 本轮覆盖此前未深核的「注册门控逻辑正确性」（[RegisterConditions](../plugin/src/main/java/com/haiman233/worldtaste/load/RegisterConditions.java)，r3 只验容错未验逻辑）与 `id_alias` 的「版本/插件变体」模式。**验证轮：无缺陷、无代码改动**。
+
+### 复查确认（本轮无问题项——附证据）
+- **`RegisterConditions` 求值逻辑正确**：`hasplugin X`(getPlugin≠null) / `itemexist X`(SlimefunItem.getById ∪ **WT.preload** 跨文件解析，预加载先于注册故时序正确) / `version op x.y`(major.minor.patch 数值比较，6 种 op) / `config.*`(忽略=通过) / 未知条件(默认通过，不阻断注册)。`unfinished`→false。`!` 前缀取反。容错：异常→true（不误杀）。**逻辑无误**。
+- **id_alias「变体二选一」模式正确（非冲突）**：17 个 id_alias(items 8 + mob_drops 9)看似与同 id 顶层键「重复注册」，实为 RSC 版本/插件变体——两两条件**互斥**：
+  - `WT_ZHIWUYOU`(`hasplugin Cultivation`) vs `VERSION_WT_ZHIWUYOU`(`!hasplugin Cultivation`，alias→WT_ZHIWUYOU)；
+  - `WT_MOGUNIUROU`(`version<1.20.5`) vs `WT_MOGUNIUROU_V`(`version>=1.20.5`，alias→WT_MOGUNIUROU)。
+  - 同一 SF id 任意环境**恰有一个变体注册**，无运行期冲突。
+- **preload last-wins 无错展示风险**：`preloadDisplays` 对同 effId 两变体 last-wins，`register()` 按 effId 查 preload。核验两对变体(WT_MOGUNIUROU/`_V`、WT_ZHIWUYOU/VERSION_)展示**完全相同**（同 skull_hash），故即便注册非末位变体也拿到正确展示；配方取自各变体自身段（非 preload），亦正确。**非 bug**。
+
+### 阶段性总评（r1–r18）
+- 累计 **18 处修复**，覆盖：复制/幽灵物品(5+处)、级联故障隔离(GroupLoader/preloadDisplays/loadCrops/FishingListener)、机器槽位/能量/重入、作物加权掉落、drop_from 双重掉落、**168 饮品不可食(r17)**、菜单/属性分派/脚本派发/recipe_type/id_alias 等。
+- 注册门控、id_alias 变体模式经本轮核验正确。代码层 + 数据派发层静态审查高度饱和；剩余为**实机验证**(FoodComponent 0 营养可食性、整体加载)与**内容作者项**(2 个未定义 id、配方数据)。

@@ -577,3 +577,15 @@
 
 ### 阶段状态
 累计 **22 处修复 + 31 轮核查**。RSC 源码对照已覆盖全部机器类型（recipe/linked/multiblock/template/workbench）+ FoodHelper/readItem：3 处保真度修正，其余忠实或有益偏离。
+
+## 第 32 轮（2026-08-05）：版本号升级 + 发布说明
+
+> 按 CLAUDE.md「如果项目有版本号，记得版本号更新」处理已延后多轮的版本滞后：本会话 r11–r31 产出 8 处修复（#15–#22），版本仍为 1.8.2-standalone。
+
+### 已完成
+- 版本号 `1.8.2-standalone` → **`1.8.3-standalone`**（patch，反映修复系列）：[build.gradle.kts](../plugin/build.gradle.kts)、[plugin.yml](../plugin/src/main/resources/plugin.yml)。
+- 新增 [note/release/1.8.3-standalone.md](release/1.8.3-standalone.md)，汇总 8 处修复（#15–#22）+ RSC 对照结论 + 已知差距。
+- `./gradlew build` 通过，产出 `WorldTaste-1.8.3-standalone.jar`(554KB)。— commit `b106990`
+
+### 阶段状态
+累计 **22 处修复 + 32 轮核查**，版本 `1.8.3-standalone`。jar 已含全部修复并打包完整。

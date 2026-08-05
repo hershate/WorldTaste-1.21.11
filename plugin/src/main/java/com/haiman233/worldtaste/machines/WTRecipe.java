@@ -51,7 +51,10 @@ public class WTRecipe extends MachineRecipe {
             if (ch >= 100 || (ch > 0 && ThreadLocalRandom.current().nextInt(100) < ch)) passed.add(i);
         }
         if (chooseOne && !passed.isEmpty()) {
-            int pick = passed.get(ThreadLocalRandom.current().nextInt(passed.size()));
+            // 对齐 RSC BlockMenuUtil.pushItem 的 chooseOne 语义：首个通过概率滚动的输出即产出并停止
+            // （取 passed.get(0)），而非在幸存者中随机。这样后序输出仅作「主产出概率失败时的回退」，
+            // 产出分布与原版一致（影响 111 个 chooseOne 配方）。
+            int pick = passed.get(0);
             passed.clear();
             passed.add(pick);
         }

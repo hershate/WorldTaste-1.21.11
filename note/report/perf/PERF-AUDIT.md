@@ -24,6 +24,7 @@
 |---|---|---|---|---|---|
 | R1 | 机器配方匹配热路径 | `WTRecipe` 惰性 `inputSfId` + `WTRecipeMachine` 纯-SF 闸门 + SF-id 预筛 | 纯-SF 机器 **7.5~26×**（isItemSimilar 调用 31→0/2、200→0/2） | ✅ 非-SF 机器 1.00×（闸门关闭） | （见下） |
 | R2 | findMatch 每 tick 分配消除 | `WTRecipeMachine` 把不变量 `posOf`（每 tick `new HashMap`+Integer 装箱）提至构造期 `int[] posBySlot` | 绑定槽机器 **~2.1×**、自由槽机器 **~17×**（白建 HashMap 消除） | ✅ 行为不变（posOf 仅依赖 inputSlots） | （见下） |
+| R3 | CropBlock.tick（验证轮 + 微优） | `CropBlock` 预算 `growMsSteps`（不变量，避免每 tick 8 次乘法） | 微（生长作物每 tick 省 8 乘法）；**Location 分配消除方案经实测为 CPU 劣化（0.54×）已拒绝** | ✅ 行为逐字一致（double 阈值保精确语义） | （见下） |
 
 ---
 
@@ -123,13 +124,41 @@
 ### 验证
 - `./gradlew compileJava` 通过。基准 `PosOfBench` 通过。
 
+---
+
+## 第 3 轮（2026-08-05）：CropBlock.tick（验证轮 + 不变量预算微优）
+
+**范围**：唯一剩余的「每 tick 每方块」热路径 `CropBlock.tick`（大型农场数百~数千作物 × 10Hz）。
+本轮为**数据驱动的验证轮**：先实测候选优化、再据结果定夺，避免引入劣化。
+
+### 先核查：加载期并非双趟解析（否决 R4 旧设想）
+
+读 [ItemsLoader.register](../../../plugin/src/main/java/com/haiman233/worldtaste/load/ItemsLoader.java) 第 79 行：
+注册期**直接复用 `WT.preload` 的展示堆**（`new SlimefunItemStack(effId, display)`），**不重调 `Read.item`**。
+故「preloadDisplays + ItemsLoader 双趟解析」设想**不成立**——加载期主体代价是 preloadDisplays 内的
+`PlayerSkin.fromHashCode` 头颅解码（单趟、Bukkit 内部、可能已内建缓存），非清晰可基准化的优化点。R4 不走此方向。
+
+### 候选优化实测（benchmark/CropBench）
+
+| 候选 | 旧 | 新 | 结论 |
+|---|---|---|---|
+| **A. Location 分配消除**（`b.getLocation()` 分配 → pack-long + 双层 map，0 分配） | 13 ns（1 分配+1 查） | 24 ns（0 分配+2 查） | **拒绝（0.54×，CPU 翻倍）**：双层 map 的两次查询代价 > 一次 Location 分配；虽省 GC，但 per-tick CPU 翻倍在高负载下损 TPS。**重要负结果：防止后续误引入此劣化。** |
+| **B. map 合并**（grown set + lastUse map → 单 map，growing 作物 2 查→1 查） | 11 ns | 11 ns | **1.00×（不可测）**：查询减半但差异落入噪声；不值得为此改动状态结构（红线：无收益不改）。 |
+| **C. 不变量预算**（`growMs * SMALL_STEPS[i]` 提至构造期 `double[] growMsSteps`） | 每 tick 8 乘法 | 0 乘法（数组载入） | **采用**：行为逐字一致（double 阈值保精确语义），消除每生长作物每 tick 的 8 次 double 乘法。收益微但零风险。 |
+
+### 已落地
+- [CropBlock.java](../../../plugin/src/main/java/com/haiman233/worldtaste/items/CropBlock.java)：构造期预算 `growMsSteps`（`cfg.growMs` 为 `long`，`* SMALL_STEPS[i]` 得 double，存 `double[]` 保精确比较语义），tick 循环改用预算值。
+
+### 阶段性结论（per-tick 热路径收敛）
+两个 per-tick 热路径已覆盖：`findMatch`（R1/R2 大幅优化）、`CropBlock`（R3 验证为已精简：成熟作物稳态仅 1 次 Location 分配 + 1 次 `getType` + 1 次集合查询，无明显可量化头寸）。**per-tick 维度趋于收敛**。后续轮次转向事件驱动高频路径（钓鱼/屠宰/指南展示）与分配抖动。
+
 ## 计划（多轮优化点，逐轮推进直至闭合）
 
 - [x] **R1** 机器配方匹配（SF-id 预筛 + 闸门）—— **完成**
 - [x] **R2** findMatch 每 tick 分配消除（posOf 提升为不变量 int[]）—— **完成**
-- [ ] **R3** 作物 `CropBlock.tick`（生长公式预算 / 状态结构 / Location 分配）
-- [ ] **R4** 加载期 `Read.item` / `preloadDisplays` 双趟（启动 1~3 分钟）
-- [ ] **R5** MobDrop `getById` 缓存 / Fishing 权重 `total` 预算
-- [ ] **R6+** 复合优化与收尾（`getDisplayRecipes` 缓存、menu 构建、行为数据结构等），直至闭合
+- [x] **R3** CropBlock.tick（验证轮：Location 分配消除经实测劣化已拒绝；落地 growMsSteps 不变量预算）—— **完成**
+- [ ] **R4** 事件驱动高频路径：Fishing 权重 `total` 预算 / MobDrop `getById` 缓存
+- [ ] **R5** 分配抖动：`getDisplayRecipes` 缓存 / `pushOutputs` 等
+- [ ] **R6+** 收尾与闭合评估
 
 > 闭合判据：可优化热路径均已覆盖，且新增轮次连续无收益（参照 security-audit 的收敛模式）。

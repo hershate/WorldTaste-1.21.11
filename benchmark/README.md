@@ -25,6 +25,7 @@ run.bat         # Windows
 | `src/Scenarios.java` | 依真实 recipe_machines.yml 形态生成的代表性场景 |
 | `src/LoadBench.java` | R6 启动期 YAML 解析缓存基准：用仓库根【真实 10 个内容文件】量化解析次数(20→10)/加载与耗时 |
 | `src/SkinBench.java` | R7 启动期 头颅贴图(PlayerSkin)去重基准：逐字复刻 fromHashCode 的 JDK 工作(MD5+JSON+Base64+URL)，扫描真实 skull_hash 分布 |
+| `src/HarvestBench.java` | R8 作物收获加权选择 total 预算基准（对齐 R4）：真实 max(n=13) + stress(n=50) |
 | `src/Main.java` | 预热 + 自适应计时主程序 |
 | `results.txt` | 最近一次运行输出（仅供参考；报告以多次运行的中位趋势为准） |
 

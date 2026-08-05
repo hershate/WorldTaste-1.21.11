@@ -4,45 +4,52 @@ warmup done
 
 scenario                           gate | case     in#  | Linear(cur): ns sim | Optimized: ns sim res  | speedup
 ------------------------------------------------------------------------------------------------------------------------
-SHUIZUXIANG 78 单输入·原版材质        g=off |  noMatch d=1 | ns=   901 sim=  78 | = Linear (gate off)  | 1.00x
-SHUIZUXIANG 78 单输入·原版材质        g=off |  hitLast d=1 | ns=  1386 sim=  79 | = Linear (gate off)  | 1.00x
-HWSCPCLJ 31 单输入·SF头颅           g=ON  |  noMatch d=1 | L:ns=  9135 sim=  31 | O:ns=   445 sim=   0 res=1 | 20.53x
-HWSCPCLJ 31 单输入·SF头颅           g=ON  |  hitLast d=1 | L:ns=  9604 sim=  32 | O:ns=  1072 sim=   2 res=1 | 8.96x
-FUHUASHI 22 双输入·混合             g=off |  noMatch d=2 | ns= 13168 sim=  88 | = Linear (gate off)  | 1.00x
-FUHUASHI 22 双输入·混合             g=off |  hitLast d=2 | ns=  7505 sim=  89 | = Linear (gate off)  | 1.00x
-STRESS 200 单输入·SF头颅            g=ON  |  noMatch d=1 | L:ns= 60654 sim= 200 | O:ns=  2397 sim=   0 res=1 | 25.30x
-STRESS 200 单输入·SF头颅            g=ON  |  hitLast d=1 | L:ns= 61115 sim= 201 | O:ns=  2975 sim=   2 res=1 | 20.54x
+SHUIZUXIANG 78 单输入·原版材质        g=off |  noMatch d=1 | ns=   925 sim=  78 | = Linear (gate off)  | 1.00x
+SHUIZUXIANG 78 单输入·原版材质        g=off |  hitLast d=1 | ns=  1444 sim=  79 | = Linear (gate off)  | 1.00x
+HWSCPCLJ 31 单输入·SF头颅           g=ON  |  noMatch d=1 | L:ns=  9313 sim=  31 | O:ns=   455 sim=   0 res=1 | 20.47x
+HWSCPCLJ 31 单输入·SF头颅           g=ON  |  hitLast d=1 | L:ns=  9426 sim=  32 | O:ns=  1200 sim=   2 res=1 | 7.86x
+FUHUASHI 22 双输入·混合             g=off |  noMatch d=2 | ns= 13063 sim=  88 | = Linear (gate off)  | 1.00x
+FUHUASHI 22 双输入·混合             g=off |  hitLast d=2 | ns=  7536 sim=  89 | = Linear (gate off)  | 1.00x
+STRESS 200 单输入·SF头颅            g=ON  |  noMatch d=1 | L:ns= 61210 sim= 200 | O:ns=  2386 sim=   0 res=1 | 25.65x
+STRESS 200 单输入·SF头颅            g=ON  |  hitLast d=1 | L:ns= 60746 sim= 201 | O:ns=  2991 sim=   2 res=1 | 20.31x
 
 [R2] posOf 查表开销（per findMatch 调用）
-  bound 槽机器: 旧(build+lookup)=40 ns  →  新(lookup)=27 ns   1.48x
-  free  槽机器: 旧(build,从不查)=46 ns  →  新(摊销≈0)=9 ns   23.00x
+  bound 槽机器: 旧(build+lookup)=40 ns  →  新(lookup)=28 ns   1.43x
+  free  槽机器: 旧(build,从不查)=48 ns  →  新(摊销≈0)=2 ns   16.00x
   (free 槽机器占 recipe_machines 多数：旧路径每 tick 白建 HashMap，新路径零开销)
 
 [R3] CropBlock 状态查询（每 tick 每成熟作物）
   [假设A] Location 分配消除（pack-long+双层map,0分配）:
-    旧(Location分配+1查)=14ns  vs  新(0分配+2查)=26ns  → 0.54x（CPU 劣化，拒绝）
+    旧(Location分配+1查)=13ns  vs  新(0分配+2查)=24ns  → 0.54x（CPU 劣化，拒绝）
     分配 500000→0/op（GC 受益，但 per-tick CPU 翻倍，高负载下损 TPS，不予采用）
   [采用] map 合并（grown set + lastUse map → 单 map，growing 作物 2 查→1 查）:
-    旧(2 查询)=11ns  vs  新(1 查询)=11ns  → 1.00x（同 1 分配，查询减半）
+    旧(2 查询)=12ns  vs  新(1 查询)=10ns  → 1.20x（同 1 分配，查询减半）
 
 [R4] Fishing select（每次钓获）
-  旧(每次求和133)=138ns  vs  新(预算total)=84ns  → 1.64x（O(n)→O(1)，绝对小但零风险）
+  旧(每次求和133)=140ns  vs  新(预算total)=82ns  → 1.71x（O(n)→O(1)，绝对小但零风险）
 
 [R5] getDisplayRecipes（每次打开指南）
-  旧(每次重建156元列表)=267ns  vs  新(缓存返回)=3ns  → 89x（每次构建消除；指南低频，绝对小）
+  旧(每次重建156元列表)=265ns  vs  新(缓存返回)=3ns  → 88x（每次构建消除；指南低频，绝对小）
 
 [R6] 启动期 YAML 解析缓存（每次加载）
   数据源: 仓库根真实内容文件（4.63 MB，10 文件）
   解析次数/次加载: 旧=20  新=10   （10 文件 ×2 → ×1，余为缓存命中）
-  总耗时(50 次加载): 旧=1223.9ms  新=595.4ms  → 2.06x
+  总耗时(50 次加载): 旧=1149.7ms  新=584.7ms  → 1.97x
   说明：消除 10 个内容文件的重复解析（生产端还省去重复的 jar 资源读取）。
         R3 既有结论：加载主体代价仍为头颅贴图解码(PlayerSkin.fromHash)；本项为零风险确定性消除。
 
 [R7] 启动期 头颅贴图(PlayerSkin)去重缓存（每次加载）
   数据源: 仓库根真实内容文件（扫描到 2684 个 skull_hash 解码，唯一 2506，重复 178 = 6.6%）
   fromHashCode 工作次数/加载: 旧=2684  新=2506   （缓存命中重复项）
-  fromHashCode 段耗时(30 次加载): 旧=160.97ms  新=108.84ms  → 1.48x
+  fromHashCode 段耗时(30 次加载): 旧=162.71ms  新=107.83ms  → 1.51x
   说明：基准逐字复刻 fromHashCode 的 JDK 工作(MD5+JSON+Base64+URL)；getItemStack 依赖 Bukkit 未计入。
         重复率仅 6.6%，故绝对收益受限于去重量；3021 个唯一解码为不可约剩余。
 
-(busywork sink=1902616216662241 —— 非零证明代价未被死码消除)
+[R8] 作物收获加权选择 total 预算（对齐 R4）+ 最终扫描
+  [最终扫描] MobDrop(按实体类型索引+getById O(1)+独立chance)=已最优; pushOutputs(clone()必需,base跨合成共享)=R5判断正确; 仅 CropBlock.onBreak 遗留 R4 模式。
+  作物加权选择（crops.yml 实测：24 加权作物，掉落表 max=13/avg=2.54）:
+    n=13(真实max): 旧(每次求和)=37ns  vs  新(load期预算total)=30ns  → 1.23x
+    n=50(stress):  旧(每次求和)=82ns  vs  新(load期预算total)=49ns  → 1.67x
+  说明：消除求和遍历(O(n)→O(1))；加权选择本身的随机遍历(avg n/2)不可消除。收获为玩家事件驱动(低频)，绝对收益小，零风险一致性修复。
+
+(busywork sink=1725967984826826 —— 非零证明代价未被死码消除)

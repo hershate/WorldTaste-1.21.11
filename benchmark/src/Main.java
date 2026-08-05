@@ -55,6 +55,9 @@ public final class Main {
         System.out.println("\n[R7] 启动期 头颅贴图(PlayerSkin)去重缓存（每次加载）");
         runSkin();
 
+        System.out.println("\n[R8] 作物收获加权选择 total 预算（对齐 R4）+ 最终扫描");
+        runHarvest();
+
         System.out.println("\n(busywork sink=" + Cost.sink + " —— 非零证明代价未被死码消除)");
     }
 
@@ -78,6 +81,29 @@ public final class Main {
         long newNs = timeOp(() -> FishingBench.sink += FishingBench.selectNew(FishingBench.BAIT) == null ? 0 : 1);
         System.out.printf("  旧(每次求和133)=%dns  vs  新(预算total)=%dns  → %.2fx（O(n)→O(1)，绝对小但零风险）%n",
                 oldNs, newNs, ratio(oldNs, newNs));
+    }
+
+    private static void runHarvest() {
+        // 预热
+        for (int i = 0; i < 20_000; i++) {
+            HarvestBench.sink += HarvestBench.selectOld(HarvestBench.DROPS_13);
+            HarvestBench.sink += HarvestBench.selectNew(HarvestBench.DROPS_13, HarvestBench.TOTAL_13);
+            HarvestBench.sink += HarvestBench.selectOld(HarvestBench.DROPS_50);
+            HarvestBench.sink += HarvestBench.selectNew(HarvestBench.DROPS_50, HarvestBench.TOTAL_50);
+        }
+        System.out.println("  [最终扫描] MobDrop(按实体类型索引+getById O(1)+独立chance)=已最优; "
+                + "pushOutputs(clone()必需,base跨合成共享)=R5判断正确; 仅 CropBlock.onBreak 遗留 R4 模式。");
+        System.out.println("  作物加权选择（crops.yml 实测：24 加权作物，掉落表 max=13/avg=2.54）:");
+        long o13 = timeOp(() -> HarvestBench.sink += HarvestBench.selectOld(HarvestBench.DROPS_13));
+        long n13 = timeOp(() -> HarvestBench.sink += HarvestBench.selectNew(HarvestBench.DROPS_13, HarvestBench.TOTAL_13));
+        System.out.printf("    n=13(真实max): 旧(每次求和)=%dns  vs  新(load期预算total)=%dns  → %.2fx%n",
+                o13, n13, ratio(o13, n13));
+        long o50 = timeOp(() -> HarvestBench.sink += HarvestBench.selectOld(HarvestBench.DROPS_50));
+        long n50 = timeOp(() -> HarvestBench.sink += HarvestBench.selectNew(HarvestBench.DROPS_50, HarvestBench.TOTAL_50));
+        System.out.printf("    n=50(stress):  旧(每次求和)=%dns  vs  新(load期预算total)=%dns  → %.2fx%n",
+                o50, n50, ratio(o50, n50));
+        System.out.println("  说明：消除求和遍历(O(n)→O(1))；加权选择本身的随机遍历(avg n/2)不可消除。"
+                + "收获为玩家事件驱动(低频)，绝对收益小，零风险一致性修复。");
     }
 
     private static void runSkin() {

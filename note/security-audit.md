@@ -629,3 +629,18 @@
 
 ### 静态审查彻底穷尽声明（r1–r35）
 至此**所有可静态核查的维度均已穷尽**：① 全 ~40 Java 文件逐文件 ② 全机器类型(recipe/linked/multiblock/template/workbench)+FoodHelper+readItem 对比 RSC ③ 数据完整性(id 冲突/脚本覆盖/recipe_type/引用/极端值/能量时间) ④ 交互(点击处理器/cargo/重入/输入信任) ⑤ 级联/并发 ⑥ 构建打包(jar 内容/版本)。**累计 22 bug 修复 + 1 死状态清理**。r31–r35 连续 5 轮验证轮无新发现，且无已知未覆盖的静态维度。**剩余唯一路径为实机加载/运行验证**（需真实服务端）。
+
+## 第 36 轮（2026-08-05）：作物生长时序对照 + 功能组合复合核查（验证轮）
+
+> 用户提示「考虑功能组合方面的复合逻辑问题」。本轮：① 逐行对照端口 `CropBlock.tick` 与原 `wt_crop.js handleGrowth` 生长公式；② 系统核查多特性在同一配方/物品上组合的复合缺陷。**验证轮：无缺陷、无代码改动**。
+
+### 复查确认（本轮无问题项——附证据）
+- **作物生长公式忠实**：原 `seed/aicao.js` 传 `stages: WT_SMALL_STEPS`（= 端口固定 SMALL_STEPS 同数组），crops.yml 全 142 作物均 `stages:"small"` → 端口恒用 SMALL_STEPS **等价**；`floor(maxAge*i/len)` 公式一致；grown/giftif 标记一致。原版 2-tick spawnTick 延迟端口省略（r6 已记为可忽略时序差，终态一致）。
+- **复合：输入-输出自引用（经典复制向量）**：Python(PyYAML) 扫描全部 5 机器文件每个配方的 input/output (material_type,material) 对 → **CLEAN，无任何配方 input==output** → 无自引用放大复制风险。
+- **复合：chooseOne + noConsume**（recipe_machines 1 个配方）：noConsume 为输入侧（consumeMatch 跳过）、chooseOne 为输出侧（pushOutputs 首个幸存者），**两侧独立**，组合处理正确。
+- **复合：chooseOne + moreOutputIfMoreTemplates**：WT_CHANLUANSHI(moreOutput) 无 chooseOne 配方 → 不现。
+- **复合：bonemeal + 作物**：原版与端口均用**时间标记**（giftif/grown）判定成熟，而非 Ageable age；骨粉只改外观 age、不改时间成熟度 → 骨粉催熟的作物破坏仍按时间判定（与原版一致，非 bug）。
+- **复合：drop_from + 粘液方块**：r12 已修（BlockDrops 跳过 SF 方块，防 SWEET_BERRY_BUSH 作物等双重掉落）。
+
+### 阶段状态
+累计 **22 bug 修复 + 1 死状态清理 + 36 轮核查**，版本 `1.8.3-standalone`。功能组合/复合逻辑维度经系统核查无复合缺陷。

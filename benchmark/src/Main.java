@@ -43,7 +43,28 @@ public final class Main {
         System.out.println("\n[R3] CropBlock 状态查询（每 tick 每成熟作物）");
         runCrop();
 
+        System.out.println("\n[R4] Fishing select（每次钓获）");
+        runFishing();
+
         System.out.println("\n(busywork sink=" + Cost.sink + " —— 非零证明代价未被死码消除)");
+    }
+
+    private static void runFishing() {
+        for (int i = 0; i < 20_000; i++) {
+            FishingBench.sink += FishingBench.selectOld(FishingBench.DROPS) == null ? 0 : 1;
+            FishingBench.sink += FishingBench.selectNew(FishingBench.BAIT) == null ? 0 : 1;
+        }
+        long oldNs = timeOp(() -> FishingBench.sink += FishingBench.selectOld(FishingBench.DROPS) == null ? 0 : 1);
+        long newNs = timeOp(() -> FishingBench.sink += FishingBench.selectNew(FishingBench.BAIT) == null ? 0 : 1);
+        System.out.printf("  旧(每次求和133)=%dns  vs  新(预算total)=%dns  → %.2fx（O(n)→O(1)，绝对小但零风险）%n",
+                oldNs, newNs, ratio(oldNs, newNs));
+    }
+
+    private static long timeOp(Runnable op) {
+        int iters = 500_000;
+        long t0 = System.nanoTime();
+        for (int i = 0; i < iters; i++) op.run();
+        return (System.nanoTime() - t0) / iters;
     }
 
     private static void runCrop() {

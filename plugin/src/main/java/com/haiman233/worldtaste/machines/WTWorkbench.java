@@ -4,7 +4,6 @@ import io.github.thebusybiscuit.slimefun4.api.items.ItemGroup;
 import io.github.thebusybiscuit.slimefun4.api.items.SlimefunItemStack;
 import io.github.thebusybiscuit.slimefun4.api.recipes.RecipeType;
 import java.util.List;
-import me.mrCookieSlime.Slimefun.Objects.SlimefunItem.abstractItems.MachineRecipe;
 import me.mrCookieSlime.Slimefun.api.item_transport.ItemTransportFlow;
 import me.mrCookieSlime.Slimefun.api.inventory.BlockMenu;
 import me.mrCookieSlime.Slimefun.api.inventory.BlockMenuPreset;
@@ -63,11 +62,14 @@ public class WTWorkbench extends WTRecipeMachine {
     }
 
     private void craft(BlockMenu menu) {
-        // 先扣能量再匹配（findNextRecipe 会立即消耗输入），避免没电时吞掉输入物品。
+        // 顺序很关键：先无消耗匹配，命中后才扣能量并消耗输入、产出。
+        //  · 若先扣能量再匹配：玩家空点击会白扣机器能量（可被反复刷空共享机器的能量）；
+        //  · 若先消耗输入再扣能量：没电时已消耗输入却无产出（吞物品）。
+        // 拆出无消耗 findMatch 后：无配方→不扣能量不消耗；有配方没电→不消耗不产出（安全失败）。
+        var m = findMatch(menu);
+        if (m == null) return;
         if (!takeCharge(menu.getLocation())) return;
-        MachineRecipe next = findNextRecipe(menu);
-        if (!(next instanceof WTRecipe)) return;
-        WTRecipe r = (WTRecipe) next;
-        r.pushOutputs(menu, getOutputSlots());
+        consumeMatch(menu, m);
+        m.recipe.pushOutputs(menu, getOutputSlots());
     }
 }

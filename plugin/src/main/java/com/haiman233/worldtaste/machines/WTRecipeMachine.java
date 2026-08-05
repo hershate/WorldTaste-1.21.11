@@ -179,8 +179,15 @@ public class WTRecipeMachine extends AContainer implements RecipeDisplayItem {
         return matchRecipes(inv, recipes);
     }
 
-    /** 在给定配方列表中匹配输入（供模板机器按当前模板筛选后复用）。 */
-    protected MachineRecipe matchRecipes(BlockMenu inv, List<WTRecipe> recipeList) {
+    /** 匹配结果：命中的配方 + 各输入项选中的输入槽下标（在 {@link #inputSlots} 中的位置）。消耗前保持有效。 */
+    protected static final class Match {
+        final WTRecipe recipe;
+        final int[] chosen;
+        Match(WTRecipe recipe, int[] chosen) { this.recipe = recipe; this.chosen = chosen; }
+    }
+
+    /** 在给定配方列表中匹配输入（供模板机器按当前模板筛选后复用）。仅匹配与校验，不消耗输入。 */
+    protected Match findMatch(BlockMenu inv, List<WTRecipe> recipeList) {
         int[] slots = inputSlots;
         int slotCount = slots.length;
         ItemStack[] slotItems = new ItemStack[slotCount];
@@ -229,8 +236,10 @@ public class WTRecipeMachine extends AContainer implements RecipeDisplayItem {
                 if (!dup) distinct++;
             }
             if (distinct != n) continue;
-            if (!InvUtils.fitAll(inv.toInventory(), recipe.getOutput(), outputSlots)) return null;
-            // tick 异步执行：匹配用的是快照，消耗前对选中槽位的实时内容再校验，避免竞态吞错物品
+            // 输出放不下时跳过本配方尝试下一个（而非整体放弃）：不同配方的输出项可能不同，
+            // 某项输出放不下不应阻塞输出项不同的其它可合成配方。
+            if (!InvUtils.fitAll(inv.toInventory(), recipe.getOutput(), outputSlots)) continue;
+            // tick 可能异步执行：匹配用的是快照，消耗前对选中槽位的实时内容再校验，避免竞态吞错物品
             boolean stillValid = true;
             for (int i = 0; i < n; i++) {
                 if (recipe.isNoConsume(i) || chosen[i] < 0) continue;
@@ -243,14 +252,33 @@ public class WTRecipeMachine extends AContainer implements RecipeDisplayItem {
                 }
             }
             if (!stillValid) continue;
-            for (int i = 0; i < n; i++) {
-                if (!recipe.isNoConsume(i) && chosen[i] >= 0) {
-                    inv.consumeItem(slots[chosen[i]], inputs[i].getAmount());
-                }
-            }
-            return recipe;
+            return new Match(recipe, chosen);
         }
         return null;
+    }
+
+    /** 用本机器的全部配方匹配（不消耗）。 */
+    protected Match findMatch(BlockMenu inv) {
+        return findMatch(inv, recipes);
+    }
+
+    /** 消耗已匹配配方的输入（跳过 noConsume 项与未占用槽位）。 */
+    protected void consumeMatch(BlockMenu inv, Match m) {
+        if (m == null) return;
+        ItemStack[] inputs = m.recipe.getInput();
+        for (int i = 0; i < inputs.length; i++) {
+            if (!m.recipe.isNoConsume(i) && m.chosen[i] >= 0) {
+                inv.consumeItem(inputSlots[m.chosen[i]], inputs[i].getAmount());
+            }
+        }
+    }
+
+    /** 匹配并消耗输入（tick 路径：操作会在机器内暂存，没电也不会丢输入）。 */
+    protected MachineRecipe matchRecipes(BlockMenu inv, List<WTRecipe> recipeList) {
+        Match m = findMatch(inv, recipeList);
+        if (m == null) return null;
+        consumeMatch(inv, m);
+        return m.recipe;
     }
 
     @Override

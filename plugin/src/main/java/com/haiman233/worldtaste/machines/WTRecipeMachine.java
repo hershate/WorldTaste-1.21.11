@@ -35,6 +35,9 @@ public class WTRecipeMachine extends AContainer implements RecipeDisplayItem {
 
     private final int[] inputSlots;
     private final int[] outputSlots;
+    /** 输入槽 GUI 索引 → 在 inputSlots 数组中的位置（-1=非输入槽）。仅依赖 inputSlots（不变量），构造期一次预算，
+     *  避免每 tick 在 findMatch 里 new HashMap + Integer 装箱（输出阻塞机器每 tick 触发，分配压力可观）。 */
+    private final int[] posBySlot;
     private final List<WTRecipe> recipes;
     private final MenuDef menu;
     private final boolean hideAll;
@@ -50,6 +53,7 @@ public class WTRecipeMachine extends AContainer implements RecipeDisplayItem {
         super(group, item, rt, recipe);
         this.inputSlots = inputSlots;
         this.outputSlots = outputSlots;
+        this.posBySlot = buildPosBySlot(inputSlots);
         this.recipes = recipes;
         this.sfPrune = computeSfPrune(recipes);
         this.menu = menu;
@@ -213,9 +217,8 @@ public class WTRecipeMachine extends AContainer implements RecipeDisplayItem {
         int[] slots = inputSlots;
         int slotCount = slots.length;
         ItemStack[] slotItems = new ItemStack[slotCount];
-        java.util.Map<Integer, Integer> posOf = new java.util.HashMap<>();
+        // posOf 已在构造期预算为 posBySlot（不变量），此处不再每 tick 重建 HashMap。
         for (int s = 0; s < slotCount; s++) {
-            posOf.put(slots[s], s);
             ItemStack it = inv.getItemInSlot(slots[s]);
             slotItems[s] = (it == null) ? null : ItemStackWrapper.wrap(it);
         }
@@ -243,9 +246,9 @@ public class WTRecipeMachine extends AContainer implements RecipeDisplayItem {
                 if (need == null) { matched++; continue; }
                 int bound = recipe.inSlot(i);
                 if (bound >= 0) {
-                    // 绑定到指定槽：仅检查该槽
-                    Integer pos = posOf.get(bound);
-                    if (pos == null) { failed = true; break; }
+                    // 绑定到指定槽：仅检查该槽（posBySlot 覆盖 0..53 GUI 槽；越界或非输入槽 → -1 → failed）
+                    int pos = (bound < posBySlot.length) ? posBySlot[bound] : -1;
+                    if (pos < 0) { failed = true; break; }
                     ItemStack in = slotItems[pos];
                     if (in != null && in.getAmount() >= need.getAmount()
                             && !(sfPrune && idCertainlyMismatch(slotSfId[pos], recipe.inputSfId(i)))
@@ -298,6 +301,17 @@ public class WTRecipeMachine extends AContainer implements RecipeDisplayItem {
     /** 用本机器的全部配方匹配（不消耗）。 */
     protected Match findMatch(BlockMenu inv) {
         return findMatch(inv, recipes);
+    }
+
+    /** 构造期预算 inputSlots 的「GUI 槽 → 数组位置」查表（54 覆盖整个背包尺寸，-1=非输入槽）。 */
+    private static int[] buildPosBySlot(int[] inputSlots) {
+        int[] pos = new int[54];
+        java.util.Arrays.fill(pos, -1);
+        for (int s = 0; s < inputSlots.length; s++) {
+            int slot = inputSlots[s];
+            if (slot >= 0 && slot < pos.length) pos[slot] = s;
+        }
+        return pos;
     }
 
     /** 预解析各非空输入槽的 SF id（读 PDC，每 tick 每槽一次）。仅 sfPrune=true 时调用。 */

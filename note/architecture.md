@@ -91,6 +91,7 @@ scripts/
 覆盖两条维度：
 - **运行期热路径（R1–R5，已闭合）**：per-tick `WTRecipeMachine.findMatch`（SF-id 预筛 + 机器级闸门、posBySlot 不变量）、
   `CropBlock.tick`（growMsSteps 不变量；Location 分配消除方案经实测劣化已拒）、事件驱动（Fishing total 预算）、低频（getDisplayRecipes 缓存）。
-- **加载期（R6 起，进行中）**：`Yaml.loadResource` 文件名缓存——`preloadDisplays` 与各 Loader 共 10 个内容文件由「解析两次」→「解析一次」，
-  `Setup.loadAll` 末尾 `clearCache` 释放解析树（长稳）。
+- **加载期（R6–R7，趋收敛）**：`Yaml.loadResource` 文件名缓存——`preloadDisplays` 与各 Loader 共 10 个内容文件由「解析两次」→「解析一次」，
+  `Setup.loadAll` 末尾 `clearCache` 释放解析树（长稳，R6）；`Read.resolve` 对头颅贴图(PlayerSkin)按 (类型,材质) 去重缓存（实测重复率 ~6%，
+  dough 无内部缓存，R7），加载后 `clearSkinCache` 释放。
 所有优化均行为保持（对齐 RSC 保真度）、零回归，逐轮附基准前后对比。

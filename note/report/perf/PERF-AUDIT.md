@@ -5,7 +5,7 @@
 > 每轮：编写/更新 `benchmark/` 测试程序量化前后性能 → 生成对比报告到本目录 → 更新 note 其它内容 → 细粒度 commit。
 > 只维护**插件版本**（plugin/）。
 >
-> 状态文件：本文件记录每轮结论与累计修复，供 /loop 持续优化跨轮续作。当前版本基线 `1.8.9-standalone`。
+> 状态文件：本文件记录每轮结论与累计修复，供 /loop 持续优化跨轮续作。当前版本基线 `1.8.10-standalone`。
 
 ## 方法论与诚实声明
 
@@ -28,6 +28,7 @@
 | R4 | 事件驱动路径 | `FishingListener` 把权重 `total` 提至 load 期 `Bait.total`（每次钓获求和→O(1)）；核查确认 `getById` 已 O(1) → MobDrop 缓存不必要 | Fishing select **~1.7×**（138→82 ns；余为加权遍历） | ✅ 行为不变（total 预算、RNG 不变） | （见下） |
 | R5 | 不变量展示列表 + 闭合 | `WTRecipeMachine.getDisplayRecipes` 缓存展示列表（同 R2「提升不变量」原则）；评估 pushOutputs 等低频路径不予改 | getDisplayRecipes **~90×**/次（269→3 ns；指南低频，绝对小） | ✅ recipes 不变，缓存安全 | （见下） |
 | R6 | **启动期** YAML 解析缓存（新维度：加载期，R1–R5 未覆盖） | `Yaml.loadResource` 文件名缓存：preloadDisplays + 各 Loader 共 10 个内容文件由「解析两次」→「解析一次」；`Setup.loadAll` 末尾 `clearCache` 释放解析树 | 解析次数/加载 **20→10**；解析段耗时 **~2.0×**（真实 4.63MB/10 文件） | ✅ Loader 只读不写、共享同实例安全；加载后无残留 ConfigurationSection 引用、释放安全 | （见下） |
+| R7 | 启动期 头颅贴图(PlayerSkin)去重缓存（加载期） | `Read.resolve` 对 skull_hash/skull/skull_url 按 (类型,材质) 缓存 `PlayerSkin`（3 分表，零命中分配）；`Setup.loadAll` 末尾 `clearSkinCache` 释放 | fromHashCode 工作次数/加载 **2684→2506**（去重 178，6.6%）；fromHashCode 段 **~1.4–1.5×** | ✅ PlayerSkin 不可变、共享安全；getItemStack 仍每次新建独立堆；Read 仅加载期用、释放安全 | （见下） |
 
 ---
 
@@ -266,18 +267,81 @@ R3 曾明确放弃此方向（「加载主体代价是 preloadDisplays 内 Playe
 
 ---
 
-## 闭合判定（R1–R6）
+## 第 7 轮（2026-08-06）：启动期 头颅贴图(PlayerSkin)去重缓存
+
+**范围**：延续 R6 的加载期维度，处理 R6 列出的头号候选——头颅贴图解码。R3 曾标注 `PlayerSkin.fromHash` 为加载
+**绝对主体**代价；本轮先**实测重复率**再定夺（数据驱动，同 R3/R4）。
+
+### 先核查：dough `PlayerSkin` 是否已内部缓存？（决定外层缓存有无收益）
+
+读 REF [PlayerSkin.java](../../../REF/RykenSlimeCustomizer-1.21.11/REF/Slimefun4.1/src/main/java/io/github/bakedlibs/dough/skins/PlayerSkin.java)：
+`fromHashCode(hash)` → `fromURL` → 每次 `UUID.nameUUIDFromBytes`（**MD5**）+ JSON 拼接 + `Base64.encodeToString` + `URI.create().toURL()`
++ `new CustomGameProfile(...)`，**无任何内部缓存**。故外层去重缓存有真实收益。
+
+### 先实测：skull_hash 重复率（决定收益量级）
+
+Python 扫描全部内容文件的 skull 解码：**3203 次 / 3021 唯一 → 仅 182 次重复（5.7%）**。
+基准（SkinBench，13 文件 hex64）实测 **2684 次 / 2506 唯一 / 178 重复（6.6%）**，两者一致确认**重复率低**。
+最高重复项为通用装饰头（如某 hash 24×）。
+
+> 结论先行：去重收益**受限于低重复率**（~6%），属「正确但绝对收益小」的零风险优化（同 R3 的 growMsSteps、R4/R5 量级）。
+> 3021 个**唯一**解码不可约（每个独立物品需各自贴图）。但因 fromHashCode 单次含 MD5+Base64+JSON+URL（~µs 级），
+> 去重那 178 次仍是真实的确定性消除，且 dough 无内部缓存，故落地。
+
+### 优化设计：PlayerSkin 按 (类型,材质) 去重缓存
+
+1. **[Read.resolve](../../../plugin/src/main/java/com/haiman233/worldtaste/load/Read.java)** 对 `skull_hash`/`skull`/`skull_base64`/`skull_url`
+   分别用 3 个 `Map<String,PlayerSkin>`（按类型分表：零命中分配、且杜绝跨类型键碰撞），首访 `fromHashCode`/`fromBase64`/`fromURL`
+   入缓存，次访直接取缓存的 `PlayerSkin`。
+2. **`PlayerHead.getItemStack(skin)` 仍每次调用**——它每次新建独立 `ItemStack`（不共享、不污染），去重只省贴图解码、不省堆构建。
+3. **`Read.clearSkinCache()` + [Setup.loadAll](../../../plugin/src/main/java/com/haiman233/worldtaste/load/Setup.java) 末尾释放**：
+   Read 仅加载期使用（grep 确认全部 `Read.item/recipe` 调用均在 `load/` 加载器内），释放安全（长稳）。
+
+### 安全性 / 保真度（红线核查）
+
+- **共享安全**：`PlayerSkin` 为**不可变值**（final 字段 uuid/texture/url），跨调用方共享无副作用；
+  `PlayerHead.getItemStack` 每次返回**新建** ItemStack（取 meta 快照、设 profile），**不修改**传入的 skin → 缓存值永不被污染。
+- **行为保真**：缓存命中的 `PlayerSkin` 与「重新 fromHashCode」产生**逐字相同**的对象（纯函数、无副作用），产出 ItemStack 一致。
+- **类型分表无碰撞**：hex64（hash）/ base64（含大写+/） / url（http 开头）字符集不相交，分表进一步隔离。
+- **释放安全**：grep 确认 `Read.item/recipe` 仅加载期调用，运行期用 SlimefunItem 注册表与 `WT.preload`（已脱离 PlayerSkin）。
+
+### 基准结果（`benchmark/`，`SkinBench`，真实内容文件）
+
+| 指标 | 旧（每次 fromHashCode） | 新（hash 缓存） | 结论 |
+|---|---|---|---|
+| fromHashCode 工作次数 / 加载（生产同构） | 2684 | **2506** | 去重 178 次（6.6%） |
+| fromHashCode 段耗时（30 次加载） | ~161 ms | ~109 ms | **~1.4–1.5×** |
+
+> `SkinBench` 逐字复刻 dough `fromHashCode` 的 **JDK 工作**（`UUID.nameUUIDFromBytes` MD5 + JSON + `Base64` + `URI.create().toURL()` +
+> 持有对象分配）——因 fromHashCode 全是 JDK 操作、无 Bukkit 依赖，本基准为**真实测量**而非建模。`getItemStack` 依赖 Bukkit（不可基准），
+> 未计入——本基准量化的正是 PlayerSkin 缓存层去重的那部分。数据源为仓库根真实内容文件扫描到的 skull_hash 材质值。
+>
+> **诚实声明**：重复率仅 ~6%，绝对收益受限于去重量；3021 个唯一解码为不可约剩余。getItemStack（Bukkit 内部，每唯一物品各一）
+> 不可优化。此项为「正确的零风险去重」，量级与 R3 微优化相当。
+
+### 验证
+- `./gradlew compileJava` 通过（仅有既存 deprecation 提示，r40 已审计、目标版本可用）。
+- 基准 `javac src/*.java && java -Dstdout.encoding=UTF-8 -cp out bench.Main` 通过，sink 非零。
+
+### 下一轮候选
+- 加载期已趋收敛：解析缓存(R6) + 贴图去重(R7) 已覆盖；剩余为不可约唯一解码 + getItemStack(Bukkit) + Material.matchMaterial（~ms 级，可忽略）。
+- **R8 候选**：做一次全维度「最终扫描」——复核运行期是否有 R1–R5 未触及的分配/查表热点，并扩展基准覆盖（如 MobDrop/BlockDrops/Consumable 路径）；
+  若确认无可优化点，则正式宣告全维度收敛。
+
+---
+
+## 闭合判定（R1–R7）
 
 | 维度 | 状态 |
 |---|---|
 | per-tick 热路径 | `findMatch`（R1/R2 大幅优化）、`CropBlock`（R3 验证已精简、Location 方案经实测劣化已拒）—— **覆盖** |
 | 事件驱动高频路径 | Fishing（R4 total 预算）、MobDrop（getById 已 O(1)）—— **覆盖** |
 | 低频运行期路径 | getDisplayRecipes（R5 缓存）、pushOutputs/FoodConsume/BlockBreak（评估不改）—— **评估完毕** |
-| 加载期路径 | YAML 解析缓存（R6：解析次数 20→10、~2×）；头颅贴图解码 `PlayerSkin.fromHash`（R3 标注为加载**绝对主体**代价，**待 R7 评估去重**）—— **进行中** |
+| 加载期路径 | YAML 解析缓存（R6：解析次数 20→10、~2×）；头颅贴图去重（R7：fromHashCode 2684→2506、~1.4×，受限于 6.6% 重复）；getItemStack（Bukkit，每唯一物品各一，不可约）；Material.matchMaterial（~ms 级，可忽略）—— **趋收敛** |
 
-**阶段性结论**：R1–R5 已闭合**运行期**热路径（per-tick / 事件 / 低频）；R6 打开并处理了**加载期**维度的解析冗余。
-R3/R4/R5 连续表明**运行期**优化空间饱和；但**加载期**仍有候选（头颅解码去重——为加载绝对主体代价，潜在收益 > R6），
-故加载期维度**尚未闭合**，R7 继续。绝对 TPS/启动耗时仍需真实服务端实测（本环境无服务端）。
+**阶段性结论**：**运行期**热路径 R1–R5 已闭合；**加载期** R6（解析缓存 ~2×）+ R7（贴图去重 ~1.4×）已覆盖可优化项，
+剩余为不可约唯一解码 + Bukkit 内部 getItemStack。两维度均**趋收敛**。R8 将做全维度最终扫描确认（并扩展基准覆盖）。
+绝对 TPS/启动耗时仍需真实服务端实测（本环境无服务端）。
 
 ### 仍待（非静态优化可解）
 - **实机 TPS / 启动耗时验证**：绝对性能（高负载 TPS、启动秒数）需真实 Paper 1.21.11 + Slimefun4.1 + 美食家/异域花园 服务端实测
@@ -292,8 +356,8 @@ R3/R4/R5 连续表明**运行期**优化空间饱和；但**加载期**仍有候
 - [x] **R4** 事件驱动路径（Fishing total 预算；getById O(1) → MobDrop 缓存不必要）—— **完成**
 - [x] **R5** getDisplayRecipes 不变量缓存 + 低频路径评估 + **运行期闭合判定** —— **完成（运行期闭合）**
 - [x] **R6** 启动期 YAML 解析缓存（文件名缓存 parse-once + 加载后 clearCache 释放）—— **完成（加载期维度开启）**
-- [ ] **R7**（候选）头颅贴图解码去重（`PlayerSkin.fromHash` 按 hash 缓存；加载绝对主体代价）—— **待实测 hash 重复率**
-- [ ] （候选）`Material.matchMaterial` 名称缓存（加载期重复材质名查找）
+- [x] **R7** 启动期 头颅贴图(PlayerSkin)去重缓存（按 hash，实测重复率 6.6% 后落地 ~1.4×；dough 无内部缓存；getItemStack 不可约）—— **完成（加载期趋收敛）**
+- [ ] **R8**（候选）全维度最终扫描 + 基准覆盖扩展（MobDrop/BlockDrops/Consumable 路径）；确认无可优化则宣告全维度收敛
+- [ ] ~~（候选）`Material.matchMaterial` 名称缓存~~ —— ~ms 级、可忽略，剔除
 
-> 闭合判据：R1–R5 闭合的是**运行期**热路径（连续无收益）；R6 开启**加载期**维度并消除解析冗余——加载期仍有候选（头颅解码去重），
-> 故**未闭合**，按用户「持续优化直到无可优化」要求继续推进。
+> 闭合判据：R1–R5 运行期闭合；R6–R7 加载期趋收敛（剩余为不可约唯一解码 + Bukkit 内部 getItemStack）。R8 做最终确认扫描。

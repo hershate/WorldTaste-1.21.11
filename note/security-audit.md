@@ -471,3 +471,17 @@
 
 ### 阶段状态
 累计 **20 处修复 + 24 轮核查**。本轮表明「与 RSC 原版源码逐行对照」是高价值的保真度核验手段——后续可继续对照其它共享逻辑（如 readItem/readRecipe/multiblock）查证端口保真度。
+
+## 第 25 轮（2026-08-05）：readItem/readRecipe 对比 RSC 源码保真度（验证轮）
+
+> 延续 r24 方向，把端口核心解析 [Read.item/recipe](../plugin/src/main/java/com/haiman233/worldtaste/load/Read.java) 与 RSC [CommonUtils.readItem/readRecipe](../REF/RykenSlimeCustomizer-1.21.11/src/main/java/org/lins/mmmjjkx/rykenslimefuncustomizer/utils/CommonUtils.java) 逐行对照。**验证轮：对真实内容功能等价、无缺陷、无代码改动**。
+
+### 复查确认（本轮无问题项——附证据）
+端口 `Read.item` 较 RSC 简化，省略若干 RSC 特性；逐一核查 WorldTaste 内容是否使用这些特性：
+- **`material|material` 回退分支**（RSC 逐个尝试，端口按单名解析→失败回退 STONE）：grep 全部 13 内容文件，**无 `material: A|B` 用法** → 端口不支持亦不触发 STONE 回退。
+- **`enchantments`/`modelId`**（RSC 应用附魔/自定义模型，端口不支持）：**全内容文件 0 命中** → 无外观/功能缺口。
+- **amount 边界**：RSC 允许 [-1,100] 直接 setAmount；端口 `amt>0 → min(amt,maxStackSize)`。当前内容 amount 全部 ∈[1,90]（r22），≤ maxStackSize，**两者行为一致**；amount≤0/负值在内容中不存在，分歧为潜伏不显现。
+- **auto-detect 类型**（ey/ew→skull、http→skull_url、hex64→skull_hash）与 skull/slimefun/none 解析：端口与 RSC 一致。
+
+### 结论
+端口 `Read.item/recipe` 对 WorldTaste **实际使用的内容子集**功能等价于 RSC，省略的 RSC 特性均未被内容采用，无保真度缺口、无 STONE 误回退风险。累计 **20 处修复 + 25 轮核查**。

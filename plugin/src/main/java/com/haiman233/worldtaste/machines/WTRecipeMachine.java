@@ -105,8 +105,19 @@ public class WTRecipeMachine extends AContainer implements RecipeDisplayItem {
         for (int s : outputSlots) functional.add(s);
         if (pslot >= 0) functional.add(pslot);
         // 背景填充剩余槽位
-        int size = (menu != null && menu.size > 0) ? menu.size : 27;
         java.util.Set<Integer> extra = extraFunctionalSlots();
+        // 尺寸必须覆盖所有功能槽(input/output/progress/extra)与装饰槽：
+        // BlockMenuPreset 按“已放置物品”自动定尺寸，而 output 槽只挂 click handler、不放置物品。
+        // 若某功能槽超出自动尺寸(如机器无对应菜单、或菜单装饰未覆盖该槽)，运行期
+        // getItemInSlot/consumeItem 会越界。此处按最大槽位向上取整到 9 的倍数(且 ≤54 背包上限)。
+        int declared = (menu != null && menu.size > 0) ? menu.size : 27;
+        int maxSlot = declared - 1;
+        for (int s : inputSlots) maxSlot = Math.max(maxSlot, s);
+        for (int s : outputSlots) maxSlot = Math.max(maxSlot, s);
+        if (pslot >= 0) maxSlot = Math.max(maxSlot, pslot);
+        for (int s : extra) maxSlot = Math.max(maxSlot, s);
+        for (int s : placed) maxSlot = Math.max(maxSlot, s);
+        int size = Math.min(54, Math.max(declared, ((maxSlot / 9) + 1) * 9));
         for (int i = 0; i < size; i++) {
             if (!functional.contains(i) && !placed.contains(i) && !extra.contains(i)) {
                 preset.addItem(i, ChestMenuUtils.getBackground(), ChestMenuUtils.getEmptyClickHandler());

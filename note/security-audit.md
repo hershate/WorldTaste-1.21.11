@@ -685,3 +685,19 @@
 
 ### 阶段状态
 累计 **22 bug 修复 + 1 死状态清理 + 39 轮核查**，版本 `1.8.3-standalone`。槽位角色重叠维度核查清洁；templateSlot-in-input 经 RSC 对照确认为忠实设计。
+
+## 第 40 轮（2026-08-05）：配方 slot 绑定越界 + deprecation 源定位（验证轮）
+
+> 核查配方 `slot:` 绑定是否落在机器 input/output 数组内（越界=死配方），并定位编译 deprecation 来源。**验证轮：无功能缺陷、无代码改动**。
+
+### 复查确认（本轮无问题项——附证据）
+- **配方 slot 绑定无越界**：Python(PyYAML) 扫描 recipe/linked/template/workbench 全部配方的 input/output `slot:` 绑定，逐一对照所在机器的 input/output 数组 —— **全部在数组内**，无越界死配方（无「绑定到 input 数组外 → posOf.get 返回 null → 永不匹配」的情况）。
+- **deprecation 源定位（3 处，目标版本功能正常）**：
+  - `PotionEffectType.getByName` × 2（[ConsumableItem.java:85](../plugin/src/main/java/com/haiman233/worldtaste/items/ConsumableItem.java)、[FoodConsumeListener.java:31](../plugin/src/main/java/com/haiman233/worldtaste/behavior/FoodConsumeListener.java)）：Paper 1.20.5+ 标记 deprecated，1.21.11 仍可用。
+  - `Player.getTargetBlock(null,5)` × 1（[SpecialItems.java:87](../plugin/src/main/java/com/haiman233/worldtaste/items/SpecialItems.java) GiantPillItem）：Paper 推荐改用 rayTraceBlocks，1.21.11 仍可用。
+
+### 评估后【未改】（前向兼容卫生项）
+上述 deprecation 在目标版本 Paper 1.21.11 **完全可用**（deprecated≠移除）。迁移到新 API（`PotionEffectType.get`/`rayTraceBlocks`）存在行为差异风险（药水查找/raytrace 边界），在目标版本可用时**不擅改**（避免引入新 bug）。记为前向兼容卫生项：若未来 Paper 移除这些 API 再迁移。
+
+### 阶段状态
+累计 **22 bug 修复 + 1 死状态清理 + 40 轮核查**，版本 `1.8.3-standalone`。配方 slot 绑定清洁；deprecation 源已定位并评估为「目标版本可用、暂不迁移」。

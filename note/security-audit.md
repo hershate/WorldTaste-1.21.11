@@ -721,3 +721,13 @@
 
 ### 阶段状态
 累计 **22 bug 修复 + 1 死状态清理 + 42 轮核查**，版本 `1.8.3-standalone`。掉落物可解析性维度（作物 r42、钓鱼 r9、mob_drops 自定义）均清洁。
+
+## 第 43 轮（2026-08-05）：钓鱼掉落 id 可解析性核查（验证轮）
+
+> 平行 r42，核查 fishing.yml 钓鱼掉落 id 的可解析性（未定义→`FishingListener.resolve` 返回 null→该次钓获静默无产出）。**验证轮：无缺陷、无代码改动**。
+
+### 复查确认（本轮无问题项——附证据）
+- **Python(PyYAML) 扫描** fishing.yml **5 鱼饵 133 掉落**：其中 **110 个 WT_* 全部已定义**（对照 WorldTaste 定义集）；23 个非 WT 为原版材质（COD/AXOLOTL_BUCKET/NAUTILUS_SHELL 等）或跨插件（GN_CRAB/GN_RAW_BASS/GN_RAW_CARP 等 Gastronomicon 鱼类），由运行期 `SlimefunItem.getById`/`Material.matchMaterial` 解析。**无未解析的钓鱼掉落**。
+
+### 阶段状态
+累计 **22 bug 修复 + 1 死状态清理 + 43 轮核查**，版本 `1.8.3-standalone`。掉落物 id 可解析性（作物 r42/钓鱼 r43）与引用完整性（material/recipe_type/script/id_alias/item_group）全维度清洁。

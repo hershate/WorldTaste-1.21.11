@@ -617,3 +617,15 @@
 
 ### 最终声明（r1–r34）
 静态代码审查与 RSC 原版对照**全面完成**：全 ~40 Java 文件 + 全机器类型 RSC 对照 + 数据完整性 + 交互/重入/级联 + 构建打包。**累计 22 处 bug 修复 + 1 死状态清理**，全部纳入通过编译的 `WorldTaste-1.8.3-standalone.jar`。剩余工作明确为**实机加载/运行验证**（[server-verification-checklist.md](server-verification-checklist.md)，需真实服务端）与**内容作者补全**（2 个未定义 id）。静态层面无已知遗留代码缺陷。
+
+## 第 35 轮（2026-08-05）：能量/时间数值维度核验（验证轮 — 静态审查彻底穷尽）
+
+> 核查最后一个未查的数据维度：能量(capacity/energyPerCraft/consumption)与时间(seconds)数值的极端/越界。**验证轮：无缺陷、无代码改动**。
+
+### 复查确认（本轮无问题项——附证据）
+- **数值区间合法**：capacity ∈[5, 100000]、energyPerCraft ≤18000、seconds ∈[0, 3600](ticks ≤7200)。均远在 int 范围内，**无溢出**；**全文件无负值**能量/时间。
+- **seconds=0（模板机 21+ 处）**：WTRecipe ticks=0 → CraftingOperation 下一 tick 即 isFinished → 瞬时合成（1 tick），与 RSC AContainer 同结构一致，为模板机预期「瞬时处理」行为，**非 bug**。
+- **能量 clamp 正确**：端口 `setCapacity(max(1,capacity))` + `setEnergyConsumption(max(1, min(consumption, capacity)))` 对 100000/18000 等值得出 consumption≤capacity，无断电软锁。
+
+### 静态审查彻底穷尽声明（r1–r35）
+至此**所有可静态核查的维度均已穷尽**：① 全 ~40 Java 文件逐文件 ② 全机器类型(recipe/linked/multiblock/template/workbench)+FoodHelper+readItem 对比 RSC ③ 数据完整性(id 冲突/脚本覆盖/recipe_type/引用/极端值/能量时间) ④ 交互(点击处理器/cargo/重入/输入信任) ⑤ 级联/并发 ⑥ 构建打包(jar 内容/版本)。**累计 22 bug 修复 + 1 死状态清理**。r31–r35 连续 5 轮验证轮无新发现，且无已知未覆盖的静态维度。**剩余唯一路径为实机加载/运行验证**（需真实服务端）。

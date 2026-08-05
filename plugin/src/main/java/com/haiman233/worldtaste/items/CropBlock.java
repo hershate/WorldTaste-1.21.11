@@ -29,12 +29,16 @@ public class CropBlock extends SlimefunItem {
     private static final double[] SMALL_STEPS = {1/10d, 1/6d, 1/3d, 0.5, 2/3d, 5/6d, 1d, 7/6d};
 
     private final CropCfg cfg;
+    /** 预算的生长阈值 growMs*SMALL_STEPS[i]（不变量，double 保精确语义）。构造期一次计算，避免每 tick 每生长作物重复 8 次乘法。 */
+    private final double[] growMsSteps;
     private final Map<Location, Long> lastUse = new ConcurrentHashMap<>();
     private final Set<Location> grown = ConcurrentHashMap.newKeySet();
 
     public CropBlock(ItemGroup group, SlimefunItemStack item, RecipeType rt, ItemStack[] recipe, CropCfg cfg) {
         super(group, item, rt, recipe);
         this.cfg = cfg;
+        this.growMsSteps = new double[SMALL_STEPS.length];
+        for (int i = 0; i < SMALL_STEPS.length; i++) growMsSteps[i] = cfg.growMs * SMALL_STEPS[i];
     }
 
     /** 不由 Slimefun 框架掉落种子本身（仅由 CropListener 在成熟时掉落作物/种子，对齐 wt_crop.js）。 */
@@ -84,8 +88,8 @@ public class CropBlock extends SlimefunItem {
             return;
         }
         long elapsed = now - last;
-        for (int i = 0; i < SMALL_STEPS.length; i++) {
-            if (elapsed < cfg.growMs * SMALL_STEPS[i]) {
+        for (int i = 0; i < growMsSteps.length; i++) {
+            if (elapsed < growMsSteps[i]) {
                 if (i > 0) setStage(b, (int) Math.floor(cfg.maxAge * ((double) i / SMALL_STEPS.length)));
                 return;
             }

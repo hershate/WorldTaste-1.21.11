@@ -37,7 +37,35 @@ public final class Main {
 
         System.out.print(sb);
 
+        System.out.println("\n[R2] posOf 查表开销（per findMatch 调用）");
+        runPosOf();
+
         System.out.println("\n(busywork sink=" + Cost.sink + " —— 非零证明代价未被死码消除)");
+    }
+
+    private static void runPosOf() {
+        // 预热
+        for (int i = 0; i < 30_000; i++) {
+            PosOfBench.sink += PosOfBench.oldBound();
+            PosOfBench.sink += PosOfBench.newBound();
+            PosOfBench.sink += PosOfBench.oldFree();
+        }
+        long oldB = timeNanos(PosOfBench::oldBound);
+        long newB = timeNanos(PosOfBench::newBound);
+        long oldF = timeNanos(PosOfBench::oldFree);
+        System.out.printf("  bound 槽机器: 旧(build+lookup)=%d ns  →  新(lookup)=%d ns   %.2fx%n",
+                oldB, newB, ratio(oldB, newB));
+        System.out.printf("  free  槽机器: 旧(build,从不查)=%d ns  →  新(摊销≈0)=%d ns   %.2fx%n",
+                oldF, timeNanos(PosOfBench::newFree), ratio(oldF, Math.max(1, timeNanos(PosOfBench::newFree))));
+        System.out.println("  (free 槽机器占 recipe_machines 多数：旧路径每 tick 白建 HashMap，新路径零开销)");
+    }
+
+    private static long timeNanos(java.util.function.LongSupplier op) {
+        int iters = 200_000;
+        long t0 = System.nanoTime();
+        for (int i = 0; i < iters; i++) PosOfBench.sink += op.getAsLong();
+        long perOp = (System.nanoTime() - t0) / iters;
+        return perOp;
     }
 
     private static void header(StringBuilder sb) {

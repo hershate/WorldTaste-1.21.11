@@ -181,3 +181,17 @@
 - **`zhongdu`**：food/saturation +17、exhaustion -1.7、POISON(1000,6)、UNLUCK(1000,6) —— 与 `zhongdu.js` 一致。
 - **`yan`**：ABSORPTION(1400,2)+DOLPHINS_GRACE(1400,1)+HUNGER(800,1)+打火石校验消耗 —— 与 `yan.js` 一致。
 - **已知简化（非 bug）**：`ConsumableItem` 对所有消耗品播放固定 `ENTITY_STRIDER_EAT` 音效，丢失原脚本的 per-script 音效（jiu 饮用声/yan 打火石声）——属听觉层面的有损简化，如需可后续加 `sound` 字段。
+
+## 第 9 轮（2026-08-05）：钓鱼/作物数据保真度核查
+
+**范围**：`data/fishing.yml` vs 原 `diaoyu.js`（掉落表/权重/鱼饵映射）、`data/crops.yml` vs 原 `seed/*` 脚本（material/maxAge/growMs/drops）；复核 `CropBlock` 收获逻辑 vs 原 `wt_crop.js`。
+
+### 复查确认（端口保真度，无问题项）
+- **`fishing.yml`**：5 个鱼饵（淡水/小型咸水/大型咸水/水果/河豚）共 133 条掉落，**逐条 id 与权重与 `diaoyu.js` 完全一致**；钓竿 `WT_BAIWEIDIAOGAN` 一致；`FishingListener.select` 加权算法等价于 `WT_selectRandomDrop`。
+- **`crops.yml`**：抽查 `seed/aicao`（material/maxAge/growMs/stages/drops）与原 `seed/aicao.js` **完全一致**。
+- **`CropBlock.dropItem`**：用 `sf.getItem()`（绑定版）等价于原 `WT_dropItem`（`new ItemStack(type)` + `setItemMeta`，含 SF id 绑定）；`onBreak` 经 `CropListener` 的 `BlockStorage.check` 校验方块身份，等价于原 `handleHarvest` 的 `getSfItem().getId()===cfg.id` 校验；weighted/chance 掉落逻辑一致。
+
+### 阶段性总评（r1–r9）
+- **代码层**：~40 Java 文件逐文件覆盖，修复 14 处（含钓鱼复制漏洞、5 处幽灵物品消耗、loadCrops 级联、机器槽位越界、工作台能量顺序、性能优化等）。
+- **数据层**：consumables(仅 xuejia 因代码模型缺口已修，余忠实)、fishing、crops 三类行为数据均经原脚本核对**忠实复刻**。
+- 审查已覆盖**代码 + 行为数据**双层面。剩余仅为：实机加载验证（需服务端）、2 个未定义内容 id（作者补）、items.yml 配方内容（纯作者数据）。

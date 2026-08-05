@@ -325,3 +325,22 @@
 
 ### 结论
 脚本类型派发（crop/food/onEat/special）经「内部自洽 + 原脚本行为比对 + 反模式回归」三重核验**忠实且无歧义**。代码层与派发层静态审查均已饱和。
+
+## 第 16 轮（2026-08-05）：数据层 recipe_type 覆盖 + 顶层加载编排/生命周期审查
+
+> 本轮覆盖此前未直接核查的**顶层加载编排**（[Setup.java](../plugin/src/main/java/com/haiman233/worldtaste/load/Setup.java)、[GroupLoader.java](../plugin/src/main/java/com/haiman233/worldtaste/load/GroupLoader.java)、[WorldTastePlugin.java](../plugin/src/main/java/com/haiman233/worldtaste/WorldTastePlugin.java)）与 `recipe_type` 数据覆盖。发现并修复**两处顶层加载循环的级联故障缺口**。
+
+### 已修复
+
+| # | 严重度 | 位置 | 缺陷 | 后果 | 修复 / commit |
+|---|---|---|---|---|---|
+| 17 | 🟠 级联失败 | `GroupLoader.load` 两循环 + `Setup.preloadDisplays` | **r4 声明「所有加载器统一逐条 try/catch」的两处遗漏**：nested/child 注册循环、预加载展示物品循环均无 try/catch。二者内部经 `Read.item` 的 `PlayerHead`/`PlayerSkin.fromURL\|fromBase64\|fromHashCode` 路径（+ 组构造/注册），单条坏展示数据抛异常会**中止整个加载** | GroupLoader 中止 → 其后物品全因「物品组缺失」跳过；preloadDisplays 中止 → loadAll 中止 → 其后 items/foods/机器全因 preload 查空跳过。任一情况均使**插件近乎空载启用** | 两循环补 `try/catch`，单条失败仅跳过该条（对齐 r4 模式）— `d7c3873` |
+
+### 复查确认（本轮无问题项——附证据）
+- **`recipe_type` 覆盖干净**：内容文件引用的全部 recipe_type 经 `comm` 比对「自定义 recipe_types.yml(40 键) ∪ 标准(22)」——**全部可解析，无回退 NULL**（即无物品因坏 recipe_type 静默变不可合成）。仅 `WUWEI_NGZZJDY` 定义未被引用（无害死定义，作者预留/移除遗留）。
+- **顶层异常兜底存在**：[WorldTastePlugin.onEnable](../plugin/src/main/java/com/haiman233/worldtaste/WorldTastePlugin.java) 以 `try/catch(Throwable)` 包裹 `Setup.loadAll()`，加载期任意未预期异常记 severe + 堆栈、不崩服务端（配合 #17 的逐条隔离，构成「单条→loader→全局」三级防护）。
+- **`RecipeTypes.load` 已有逐条 try/catch**（[RecipeTypes.java:22,31](../plugin/src/main/java/com/haiman233/worldtaste/load/RecipeTypes.java)），`resolve` 未知类型回退 NULL 并告警。
+- **加载顺序**：`groups → recipe_types → preloadDisplays → Behaviors.loadData → items → foods → mob_drops → menus → recipe/workbench/multiblock/template/geo → registerListeners`，依赖关系正确（preload 先于 items、loadData 先于 foods 查表、listeners 最后注册）。
+
+### 阶段性更新（r1–r16）
+- 累计 **17 处修复**。本轮表明即便经多轮验证，**顶层加载编排**这类「单点失败波及全局」的路径仍值得专门核查——发现了 r4 故障隔离声明的两处遗漏。后续仍可继续覆盖未深核的 loader/数据维度，但产出会逐步从「代码缺陷」转向「内容数据校验」。

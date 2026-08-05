@@ -21,19 +21,29 @@ public final class GroupLoader {
     public static void load() {
         YamlConfiguration y = Yaml.loadResource(WT.plugin, "groups.yml");
         // 先注册 nested 根组，再注册子组（SubItemGroup 构造需要父 NestedItemGroup）
+        // 逐条 try/catch 故障隔离：registerNested 内 Read.item(PlayerHead/Skin) 或组构造/注册
+        // 可能对单条坏数据抛异常；若无隔离会中止整个 GroupLoader，其后所有物品因「物品组缺失」被跳过。
         for (String key : y.getKeys(false)) {
-            ConfigurationSection s = y.getConfigurationSection(key);
-            if (s == null) continue;
-            String type = s.getString("type", "normal").toLowerCase(Locale.ROOT);
-            if (type.equals("nested") || type.equals("parent")) registerNested(key, s);
+            try {
+                ConfigurationSection s = y.getConfigurationSection(key);
+                if (s == null) continue;
+                String type = s.getString("type", "normal").toLowerCase(Locale.ROOT);
+                if (type.equals("nested") || type.equals("parent")) registerNested(key, s);
+            } catch (Exception e) {
+                WT.log("groups " + key + " 注册失败，跳过: " + e);
+            }
         }
         int ok = WT.groups.size();
         for (String key : y.getKeys(false)) {
-            ConfigurationSection s = y.getConfigurationSection(key);
-            if (s == null) continue;
-            String type = s.getString("type", "normal").toLowerCase(Locale.ROOT);
-            if (type.equals("nested") || type.equals("parent")) continue;
-            registerChild(key, s, type);
+            try {
+                ConfigurationSection s = y.getConfigurationSection(key);
+                if (s == null) continue;
+                String type = s.getString("type", "normal").toLowerCase(Locale.ROOT);
+                if (type.equals("nested") || type.equals("parent")) continue;
+                registerChild(key, s, type);
+            } catch (Exception e) {
+                WT.log("groups " + key + " 注册失败，跳过: " + e);
+            }
         }
         WT.plugin.getLogger().info("groups.yml: 注册 " + (WT.groups.size() - ok) + " 子组，共 " + WT.groups.size());
     }

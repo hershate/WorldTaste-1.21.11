@@ -40,15 +40,22 @@ public final class Setup {
     private static void preloadDisplays() {
         for (String file : ITEM_FILES) {
             YamlConfiguration y = Yaml.loadResource(WT.plugin, file);
+            // 逐条 try/catch 故障隔离：Read.item 经 PlayerHead/PlayerSkin.fromURL|fromBase64|fromHashCode
+            // 等路径，单条坏展示数据可能抛异常；若无隔离会中止 preloadDisplays → loadAll → 其后
+            // items/foods/机器等全部因 preload 查空而跳过，插件近乎空载启用。
             for (String id : y.getKeys(false)) {
-                ConfigurationSection s = y.getConfigurationSection(id);
-                if (s == null) continue;
-                ConfigurationSection itemSec = s.getConfigurationSection("item");
-                if (itemSec == null) continue;
-                ItemStack display = Read.item(itemSec, false);
-                if (display != null) {
-                    String effId = s.getString("id_alias", id).toUpperCase(java.util.Locale.ROOT);
-                    WT.preload.put(effId, display);
+                try {
+                    ConfigurationSection s = y.getConfigurationSection(id);
+                    if (s == null) continue;
+                    ConfigurationSection itemSec = s.getConfigurationSection("item");
+                    if (itemSec == null) continue;
+                    ItemStack display = Read.item(itemSec, false);
+                    if (display != null) {
+                        String effId = s.getString("id_alias", id).toUpperCase(java.util.Locale.ROOT);
+                        WT.preload.put(effId, display);
+                    }
+                } catch (Exception e) {
+                    WT.log("预加载展示物品 " + id + " 失败，跳过: " + e);
                 }
             }
         }

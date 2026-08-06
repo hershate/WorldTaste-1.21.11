@@ -892,3 +892,16 @@ material 引用 / recipe_type / 脚本 / id_alias / item_group / 作物掉落 / 
 
 ### 阶段状态
 累计 **23 bug 修复 + 2 死状态清理 + 51 轮核查**，版本 `1.8.12-standalone`。FoodsLoader（共享 preload 先克隆的正确防御 + 食物派发 WTItem + onEat 桥）与 MenuDef（纯数据）均清洁。至此本会话已亲自通读 ~30 个核心 Java 文件。本轮为验证轮，无代码改动。
+
+## 第 52 轮（2026-08-06）：GroupLoader + MenuLoader + RegisterConditions 复核（验证轮）
+
+> 本轮读剩余 loader：[GroupLoader](../plugin/src/main/java/com/haiman233/worldtaste/load/GroupLoader.java)（物品组）、[MenuLoader](../plugin/src/main/java/com/haiman233/worldtaste/load/MenuLoader.java)（菜单）、[RegisterConditions](../plugin/src/main/java/com/haiman233/worldtaste/load/RegisterConditions.java)（注册门控）。**验证轮：无缺陷、无代码改动**。
+
+### 复查确认（本轮无问题项——附证据）
+
+- **GroupLoader**：清洁。两遍加载（先 nested 根组、再子组——SubItemGroup 构造需父 NestedItemGroup 已注册）+ 逐条 try/catch（r16 #17 级联修复）。`Month.of(Math.max(1,Math.min(12,month)))` 钳制防 `Month.of` 越界抛异常。button 型经 `default` 分支落 SubItemGroup（点击开空页，r33 已记为已知小差距、非 bug）。`nsKey` 用 `key.toLowerCase()`，组键均合法（小写/下划线/数字），即便非法亦被外层 try/catch 兜住。
+- **MenuLoader**：清洁。`parseSlots` 的 r3 修复在场（`lo>=0 && hi>=lo` 守卫，反转区间/非法键返回空数组仅跳过该槽，不连累整菜单）。`progressItem` 可能为 null（进度槽无 material 时）→ `WTRecipeMachine` 的 `(menu.progressItem!=null)?...:默认玻璃板` 兜底，**无 NPE**。区间键若标 progressbar，progressSlot 取区间末槽（进度条实践中为单槽，非 bug）。`Colors.c` 标题 null 安全。
+- **RegisterConditions**：清洁（r18 逻辑核验仍成立）。`pass`：无 `register` 段→通过；`unfinished`→false；逐条件 eval，任一失败则 warn(可选)+false。`eval`：`!`取反 / `hasplugin X`(getPlugin≠null) / `itemexist X`(getById∪WT.preload，预加载先于注册故时序正确) / `version op x.y`(`Bukkit.getMinecraftVersion()` 数值比较，6 op，parseInt 异常→外层 catch→true 不阻断) / `config.*`(忽略=通过) / 未知(=通过)。全部加载期读 config，无玩家输入。
+
+### 阶段状态
+累计 **23 bug 修复 + 2 死状态清理 + 52 轮核查**，版本 `1.8.12-standalone`。GroupLoader（两遍加载+级联隔离+Month钳制）、MenuLoader（parseSlots 故障隔离+null兜底）、RegisterConditions（门控逻辑正确）均清洁。本轮为验证轮，无代码改动。剩余未本会话通读的为小文件（GeoLoader/WorkbenchLoader/TemplateLoader/WTGeoResource/WTItem/WTUnplaceableItem/Colors）。

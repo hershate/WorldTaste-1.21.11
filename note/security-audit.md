@@ -744,3 +744,30 @@ material 引用 / recipe_type / 脚本 / id_alias / item_group / 作物掉落 / 
 
 ### 最终状态
 累计 **22 bug 修复 + 1 死状态清理 + 44 轮核查**，版本 `1.8.3-standalone`。**全部可静态核查的维度（代码/数据/引用/掉落/复合/槽位/内存/构建/RSC对照/交互）已逐项覆盖且清洁**，静态层面无已知遗留缺陷。r31–r44 连续 14 轮验证轮零新发现。剩余唯一路径为**实机加载/运行验证**（[server-verification-checklist.md](server-verification-checklist.md)，需真实服务端）。
+
+## 第 45 轮（2026-08-06）：审计后性能改动（R6–R8）复核 + 核心 消耗/掉落 路径整体重读 + r12 双重掉落守卫的优先级证明（验证轮）
+
+> 用户以 /loop 重启持续审查。本轮发现一个**此前未覆盖的盲区**：性能优化 R6–R8（[Yaml 文件名缓存](../plugin/src/main/java/com/haiman233/worldtaste/load/Yaml.java)、[Read 头颅贴图去重缓存](../plugin/src/main/java/com/haiman233/worldtaste/load/Read.java)、[Behaviors.weightTotal](../plugin/src/main/java/com/haiman233/worldtaste/behavior/Behaviors.java) + [CropBlock.onBreak](../plugin/src/main/java/com/haiman233/worldtaste/items/CropBlock.java)）是在安全审查于 r44/**1.8.3** 闭合**之后**才提交的（版本经 R6–R8 升至 **1.8.11**），这些**引入新缓存/状态的改动从未经过稳定性/信任边界审查**。本轮专审它们；并整体重读核心「消耗/掉落」信任单元（Stacks/ConsumableItem/FishingListener/BlockDrops/CropListener），补一个 r12 守卫的**优先级级证明**。**验证轮：无缺陷、无代码改动**。
+
+### 复查确认（本轮无问题项——附证据）
+
+- **R6 [Yaml](../plugin/src/main/java/com/haiman233/worldtaste/load/Yaml.java) 文件名缓存**：清洁。
+  - 缺失资源被缓存为空 `YamlConfiguration`——与 R6 前「每次返回新空配置」行为等价（全部调用方只读，grep `\.set\(` 零命中，共享空配置安全）。
+  - 加载期单线程填充（`HashMap`），运行期从不调用 `Yaml.loadResource`（grep 确认全部调用点在 `Setup.loadAll` 第 22–40 行、`Behaviors.loadData`、`FishingListener.load`，均在 `clearCache`（第 38 行）之前）。
+  - `clearCache` 在 `loadAll` 末尾执行；若 `loadAll` 中途抛异常（未到第 38 行），缓存残留亦无害（jar 内资源不可变，缓存值==新解析值）。非 bug。
+- **R7 [Read](../plugin/src/main/java/com/haiman233/worldtaste/load/Read.java) 头颅贴图缓存**：清洁。
+  - `fromHashCode/fromBase64/fromURL` 失败（若有）会在 `put` **之前**抛出，被各 loader 逐条 try/catch 兜住（preloadDisplays r16、GroupLoader r16、ItemsLoader 逐条），**不会写入中毒缓存项**。
+  - `PlayerSkin` 不可变、`PlayerHead.getItemStack(skin)` 每次新建独立堆 → 缓存值跨调用方共享无副作用。
+  - `clearSkinCache` 在 `loadAll` 末尾、全部 `Read.item/recipe` 之后（grep 确认运行期无 Read 调用）。
+- **R8 `weightTotal` 预算**：一致——仅在通过 `id instanceof String && w instanceof Number` 守卫的 `weightedDrops` 项累加，与 `drops.add` **同源同守卫** → `weightTotal == Σ drops.weight`。`onBreak` 的 `total<=0` 守卫 + 末项兜底（r11）处理脏数据；仅 `weighted=true` 作物生效，概率作物不受影响。
+- **[Stacks.consumeOne*](../plugin/src/main/java/com/haiman233/worldtaste/util/Stacks.java)**：幽灵物品修复正确。Paper 1.21.11 的 `getItemInMainHand/getItemInOffHand` 返回共享 NMS handle 的 **live CraftItemStack 镜像**，`setAmount(left)` 直接改写背包；`left<=0` → `setItemInHand(null)` 清空槽位。（平台依赖注记：依赖 live-mirror 语义，为标准 Paper 行为、长期稳定，非 bug。）
+- **[ConsumableItem](../plugin/src/main/java/com/haiman233/worldtaste/items/ConsumableItem.java)**：**消耗先于效果**的顺序对「禁止复制」红线是正确的——效果链中途异常至多「丢一物」、绝不复制。`randomFood` 的 `nextInt(opts.randomFood)` 边界：grep `data/consumables.yml` 全文件 **`randomFood` 仅 1 处、值为 12**（`nextInt(12)` 安全）；`randomFood:0/负数` 会抛 `IllegalArgumentException`（被 Bukkit 事件分发兜住、不崩服）——属**潜伏**，当前数据不触发，按纪律不改（对齐 r13/r14/r40「潜伏不显现不改」）。
+- **onDisable / reload 生命周期**：`onDisable` 为空（仅日志），但 Bukkit 的 `disablePlugin` 会 `HandlerList.unregisterAll(plugin)`（监听器由框架清理），且静态注册表均按键覆盖（内容打包进 jar、不可变，reload 不无界增长）。`/reload` 本就被 README 明确禁用（「切勿使用热重载」）。对所支持的冷启动场景**非 bug**。
+- **【新】r12 双重掉落守卫的优先级级证明**：[BlockDrops.onBreak](../plugin/src/main/java/com/haiman233/worldtaste/behavior/BlockDrops.java) 的 `if (BlockStorage.check(block) != null) return;` 守卫是否稳健，取决于 Slimefun 何时清 `BlockStorage`。读 REF [BlockListener.java](../REF/RykenSlimeCustomizer-1.21.11/REF/Slimefun4.1/src/main/java/io/github/thebusybiscuit/slimefun4/implementation/listeners/BlockListener.java)：
+  - Slimefun `BlockListener.onBlockBreak` 为 **`EventPriority.HIGHEST`**（第 136 行），其 `callBlockHandler` 内 `BlockStorage.clearBlockInfo`（第 236 行）在此优先级才执行。
+  - 本插件 `BlockDrops.onBreak` / `CropListener.onBreak` 均为默认 **`NORMAL`**（`@EventHandler(ignoreCancelled=true)` 未显式指定 priority）→ 两者均**先于 HIGHEST** 执行。
+  - 故 `BlockDrops.onBreak`（NORMAL）执行时，`BlockStorage.check` 仍返回已注册的作物/SF 方块 → 守卫命中 → 提前 return → **无双重掉落**。守卫稳健，非巧合。
+  - 佐证：`CropBlock.getDrops()` 返回空 + `CropListener` 已 `setDropItems(false)` → 作物产物恰好掉落一次（来自 CropListener），Slimefun 不额外掉（getDrops 空）、BlockDrops 不额外掉（守卫）。**完全正确**。
+
+### 阶段状态
+累计 **22 bug 修复 + 1 死状态清理 + 45 轮核查**（当前实际版本 `1.8.11-standalone`；安全审查本体止于 1.8.3，其后 R6–R8 性能改动经本轮复核清洁）。本轮覆盖了 r44 之后才引入的缓存/状态改动，并以优先级级证据固化了 r12 守卫的稳健性。**无新代码缺陷**。剩余唯一路径仍为**实机加载/运行验证**（需真实服务端）。

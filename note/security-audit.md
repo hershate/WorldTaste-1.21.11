@@ -834,3 +834,20 @@ material 引用 / recipe_type / 脚本 / id_alias / item_group / 作物掉落 / 
 
 ### 阶段状态
 累计 **23 bug 修复 + 1 死状态清理 + 48 轮核查**，版本 `1.8.12-standalone`。特殊物品（捕云瓶/巨人丸）信任边界与实体生成健壮性经复核清洁；派发空值处理无 NPE。本轮为验证轮，无代码改动。
+
+## 第 49 轮（2026-08-06）：机器类整体复核（多方块/模板/工作台，验证轮）
+
+> 本轮整体重读机器类 [WTMultiBlockMachine](../plugin/src/main/java/com/haiman233/worldtaste/machines/WTMultiBlockMachine.java) / [WTTemplateMachine](../plugin/src/main/java/com/haiman233/worldtaste/machines/WTTemplateMachine.java) / [WTWorkbench](../plugin/src/main/java/com/haiman233/worldtaste/machines/WTWorkbench.java)（本轮会话首次通读），聚焦数据操作顺序、溢出、NPE。**验证轮：无缺陷、无代码改动**。
+
+### 复查确认（本轮无问题项——附证据）
+
+- **WTMultiBlockMachine.onInteract**：数据操作顺序正确——`findOutputInventory`（满则 message+return，不消耗）→ 消耗输入 → `outputInv.addItem(output)`（满则 return 已先拦截，不吞物）。`MultiBlockCraftEvent` 取消或 `canPlayerUseItem` 失败 → return（对齐 RSC，r28）。`output.clone()` 防污染。消耗 `input.length ≤ 9 = contents.length`（发射器 9 槽 + 配方 Read.recipe size 9），**无 AIOOBE**。
+- **work 槽 NPE 已由 loader 守卫**：曾疑 [第 49 行](../plugin/src/main/java/com/haiman233/worldtaste/machines/WTMultiBlockMachine.java) `getRecipe()[workIndex].getType()` 在 work 结构槽为 null 时 NPE。经核 [MultiBlockLoader:36](../plugin/src/main/java/com/haiman233/worldtaste/load/MultiBlockLoader.java) `if (work<1||work>9||structure[work-1]==null) skip`——**显式校验 work 槽非空**（且 work∈1..9 短路防 AIOOBE）。**非 bug**。
+- **`isCraftable` 双重 isItemSimilar**（checkLore true 失败再 false，r28 与 RSC 一致）；recipe/contents 均 9 槽定长，null 配方槽要求对应发射器槽为空（精确模式匹配，标准多方块语义）。
+- **`dispenserFaceGet` 边界**：center±3/±1 均 `>=0`/`<9` 守卫，无 dispenser 时返回 SELF → `getRelative(SELF)`=自身非 Dispenser → return 优雅无操作。端口边界**优于 RSC**（RSC work=1/center=0 有潜在 AIOOBE，r28）。
+- **消耗经 getContents() live-mirror**：`contents=inv.getContents()`（Dispenser 瓦片实体库存）→ `ItemUtils.consumeItem(contents[j])`。Paper 的 CraftInventory.getContents 对瓦片实体库存返回共享 NMS handle 的 CraftItemStack 镜像，setAmount 直接改写发射器（与上游 Slimefun MultiBlockMachine / RSC CustomMultiBlockMachine 同模式，生产验证可工作）。与 [Stacks live-mirror](../plugin/src/main/java/com/haiman233/worldtaste/util/Stacks.java) 观察（r45）一致，为标准 Paper 行为。
+- **WTTemplateMachine**：模板门控 `getByItem(tpl)` null → 不合成（r30）；`byTemplate` 查表；`moreOutputIfMoreTemplates` 乘数 `mult=tpl.getAmount()`，`pushOutputs` 内 `pushItem` 按槽位/maxStackSize 拆分堆叠 + 溢出掉落（line 107-113），**无溢出丢失**；模板不在 recipe 输入故不被消耗（r39）。构造期重建 preset 使 templateSlot 不被背景封死。
+- **WTWorkbench.craft**：顺序 `findMatch`(无消耗)→`takeCharge`(能量)→`consumeMatch`→`pushOutputs`（#4 修复，r1/r14）：无配方不扣能量不消耗；有配方没电不消耗不产出（安全失败，不吞物）。`findMatch` 内含 `InvUtils.fitAll`（输出放得下才返回匹配）防吞；click handler `return false` 阻断放入（r21）；`tick` 为空（手动合成）。
+
+### 阶段状态
+累计 **23 bug 修复 + 1 死状态清理 + 49 轮核查**，版本 `1.8.12-standalone`。三类机器（多方块/模板/工作台）数据操作顺序、溢出、NPE、消耗机制经整体复核清洁；work 槽 NPE 由 loader 显式守卫。本轮为验证轮，无代码改动。

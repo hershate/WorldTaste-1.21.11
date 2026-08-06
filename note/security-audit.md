@@ -793,3 +793,19 @@ material 引用 / recipe_type / 脚本 / id_alias / item_group / 作物掉落 / 
 
 ### 阶段状态
 累计 **23 bug 修复 + 1 死状态清理 + 46 轮核查**，版本升至 **`1.8.12-standalone`**。**本轮打破了 r31–r45 连续 15 轮零发现的记录**——证明「即便高度饱和，重读未亲自核查的运行期路径 + 复核新引入改动（R6 缓存）的不变量前提」仍能产出真缺陷。MobDropsLoader 的缓存污染虽当前无害，但移除后使 R6 安全前提由「侥幸」转为「设计」，是值得的零风险加固。
+
+## 第 47 轮（2026-08-06）：机器配方匹配核心正确性复核（WTRecipe/WTRecipeMachine，验证轮）
+
+> 本轮复核性能优化 R1/R2 所改动的**匹配正确性**（非性能角度）：SF-id 预筛是否会**误跳过有效匹配**导致配方静默失效？并深究 `findMatch` 的去重槽位校验。两个疑点经源码核实均**非缺陷**。**验证轮：无代码改动**。
+
+### 复查确认（本轮无问题项——附证据）
+
+- **【疑点 A】去重槽位校验 `distinct==n` 与空输入**：曾担心 `WTRecipe.getInput()` 为 9 元含 null 数组时，多个 null 输入的 `chosen[i]=-1` 互相重复致 `distinct` 永远 < `n`、配方永不命中。**经核 [RecipeMachineLoader.readRecipes:72-88](../plugin/src/main/java/com/haiman233/worldtaste/load/RecipeMachineLoader.java)**：loader 只遍历配方 `input` 段的**实际键**、并 `if (it==null) continue` 跳过空，`input = inList.toArray` 产出**无 null 的紧凑数组** → `n` = 真实配料数，`findMatch` 的 `if (need==null)` 分支为**防御性死代码**（永不触发），`distinct==n` 正确要求每个配料各占一个不同槽位。配方 `[A,A]` 需 A 在**两个不同槽**（RSC `LinkedHashMap` size 校验语义，r27 已证一致）。**非 bug**。
+- **【疑点 B，关键】SF-id 预筛的跳过安全性**：`idCertainlyMismatch(inId,needId)` 为真（两端均 SF 且 id 不同）时跳过 `isItemSimilar`。需证此情形下 `isItemSimilar` **必返回 false**。读 REF [SlimefunUtils.isItemSimilar:360-376](../REF/RykenSlimeCustomizer-1.21.11/REF/Slimefun4.1/src/main/java/io/github/thebusybiscuit/slimefun4/utils/SlimefunUtils.java)：
+  - both-SF 分支：`if (!sf_sfitem.getId().equals(sf_item.getId())) return false;`（第 364-366 行）——**id 不同必 false**，且此判断在 `DistinctiveItem` 检查**之前**（DistinctiveItem 仅在 id **相等**时才进一步区分，第 373 行）。故「两端 SF + id 不同」`isItemSimilar` 恒 false，预筛跳过**不丢失任何有效匹配**。
+  - id 解析一致性：`slotSfId`（PDC `getItemData`）== `getByItem(slot).getId()`（getByItem 即读 PDC 再 getById），与 `isItemSimilar` 内部 `sf_item.getId()` 同源；`inputSfId`==`getByItem(need).getId()`==`sf_sfitem.getId()`。故 `idCertainlyMismatch` 与 `isItemSimilar` 的 id 比较完全等价。**预筛可证安全，无静默配方丢失**（固化 R1 结论，补 DistinctiveItem 边界证据）。
+- **机器生命周期/数据操作**：`tick` 在 `op==null` 时 `findNextRecipe`（即 `matchRecipes`=匹配+消耗）+ `startOperation`+`active.put`；`takeCharge` 失败（没电）仅不推进、不消耗输出、op 保留待下次；完成时 `active.remove`+`pushRecipeOutputs`+`endOperation`。`InvUtils.fitAll` 输出放不下 → `continue` 尝试下一配方（不卡死，r1/r5）。`stillValid` 消耗前对选中槽**实时再校验**（防异步竞态吞错物，用 `inv.getItemInSlot` 非 wrapper 快照）。`active` 为 `ConcurrentHashMap`。**无复制/吞物/竞态**。
+- **`pushOutputs` chooseOne** 取 `passed.get(0)`（首个幸存者，对齐 RSC，r26）；`multiplier` 仅模板机用（r30 moreOutputIfMoreTemplates）。`getDisplayRecipes` 缓存（recipes 构造后不变，r5）。`constructMenu` 尺寸覆盖 maxSlot（r7/r13）。
+
+### 阶段状态
+累计 **23 bug 修复 + 1 死状态清理 + 47 轮核查**，版本 `1.8.12-standalone`。机器配方匹配核心（去重槽位校验 + SF-id 预筛）经源码级复核**正确**：预筛跳过可证等价于 `isItemSimilar` 的 both-SF 分支（id 检查先于 DistinctiveItem），无静默配方丢失。本轮为验证轮，无代码改动。

@@ -921,3 +921,16 @@ material 引用 / recipe_type / 脚本 / id_alias / item_group / 作物掉落 / 
 
 ### 阶段状态
 累计 **23 bug 修复 + 2 死状态清理 + 53 轮核查**，版本 `1.8.12-standalone`。**本会话已亲自通读全部 ~40 个 Java 文件**（覆盖：主类/加载编排/全部 loader/读取器/行为注册表/5 监听器/机器类×4/物品类/属性层/特殊物品/工具）。WTGeoResource 共享引用经 REF 证明安全（GEO 消费点克隆）。本轮为验证轮，无代码改动。后续转向数据层校验（data/*.yml 字段范围/类型、配方 amount>maxStackSize）。
+
+## 第 54 轮（2026-08-06）：数据层校验（配方 amount 边界 + data/*.yml 字段类型，验证轮）
+
+> 本轮转向数据层（此前多为代码层）。用 Python/PyYAML 系统校验：(1) 机器配方 input/output 的 `amount` 是否超过材质 maxStackSize（端口 `Read.item` 会 clamp 到 maxStackSize、RSC 不 clamp → 潜在保真度分歧；r22 曾称 amount 至 90）；(2) `data/*.yml` 数值字段是否被误写为字符串（loader 的 getDouble/getInt 类型不符会静默默认 0）。**验证轮：数据层清洁，无缺陷、无代码改动**。
+
+### 复查确认（本轮无问题项——附证据，Python/PyYAML 实测）
+
+- **配方 amount 无超 maxStackSize**：扫描 5 个机器文件（recipe/linked/template/workbench/mb）全部 **20729 个 item-spec**，`amount` **最大值 = 64**（**#>64 = 0**）——**勘误 r22「amount 至 90」**：实测全数据 amount ∈ [1,64]。故端口 [Read.item:74](../plugin/src/main/java/com/haiman233/worldtaste/load/Read.java) `min(amt, maxStackSize)` 的 clamp 对 64 堆叠材质为**空操作（no-op）**，r25 的「行为一致」结论**经实测成立**（非仅潜伏）。
+- **无 amount>16 落在低堆叠(≤16)材质**：列出全部 amount>16 的原版(mc)材质（16 种：BONE/TURTLE_EGG/RAW_COPPER/PUFFERFISH/SALMON/MOSS_BLOCK/REDSTONE_BLOCK/COD/TROPICAL_FISH/DIAMOND_BLOCK/LAPIS_BLOCK/STRING/DRIED_KELP/ENDER_EYE/POPPED_CHORUS_FRUIT/WITHER_SKELETON_SKULL），**均为 64 堆叠材质**（1.21 鱼类/头颅/矿物块均 64 堆叠）→ 任意 amount∈[1,64] ≤ 其 maxStack → **无 clamp 触发、无保真度分歧、无「配方不可合成」**。
+- **data/*.yml 数值字段类型正确**：扫描 consumables/crops/fishing 全部数值字段（food/saturation/exhaustion/.../chance/weight/duration/amplifier 等 19 类），**字符串误填 = 0** → 无「getDouble/getInt 静默默认 0」的潜伏。
+
+### 阶段状态
+累计 **23 bug 修复 + 2 死状态清理 + 54 轮核查**，版本 `1.8.12-standalone`。数据层（配方 amount 边界 20729 specs 实测 max=64 无超 maxStack；data/*.yml 字段类型全正确）经系统校验**清洁**，并勘误 r22 的「amount 至 90」。**代码层（全 ~40 文件）+ 数据层现已双覆盖且清洁**。本轮为验证轮，无代码改动。

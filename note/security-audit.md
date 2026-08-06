@@ -982,3 +982,33 @@ material 引用 / recipe_type / 脚本 / id_alias / item_group / 作物掉落 / 
 
 ### 阶段状态
 累计 **23 bug 修复 + 2 死状态清理 + 56 轮核查**，版本 `1.8.12-standalone`。作物保真度经 6 个代表性作物（4 种 material × drops/weightedDrops 两类）**逐值系统核对全匹配**；澄清 crops 分数制 vs mob_drops 百分比制无跨界混用；加权选择算法与 JS 逐字等价。**代码层 + 数据层 + 行为保真度（消耗品 R55 / 作物 R56 / 钓鱼 r9）三层全覆盖且清洁**。本轮为验证轮，无代码改动。
+
+## 第 57 轮（2026-08-06）：钓鱼保真度系统交叉核对（fishing.yml vs diaoyu.js，程序化逐条 diff，验证轮）
+
+> 本轮以 Python 程序化逐条 diff 重新核对钓鱼端口保真度（r9 曾手工核对）。解析 [diaoyu.js](../../scripts/diaoyu.js) 的 5 张掉落表（`itemId/weight`）+ `WT_setupFishing` 鱼饵映射，与 [fishing.yml](../plugin/src/main/resources/data/fishing.yml) 全量比对。**验证轮：零差异，无代码改动**。
+
+### 复查确认（本轮无问题项——程序化 diff 实测）
+
+| 项 | 原 diaoyu.js | fishing.yml | 结论 |
+|---|---|---|---|
+| 钓竿 id | `WT_BAIWEIDIAOGAN` | `WT_BAIWEIDIAOGAN` | ✅ MATCH |
+| 鱼饵集合 | 5 个（DANSHUI/HETUN/SHUIGUO/XIANSHUI/XIANSHUI_2） | 同 5 个 | ✅ set 相等 |
+| WT_DANSHUIYUER | 33 drops | 33 drops | ✅ 逐条 (id,weight) 全等、顺序一致 |
+| WT_XIANSHUIYUER | 30 drops | 30 drops | ✅ 全等 |
+| WT_XIANSHUIYUER_2 | 26 drops | 26 drops | ✅ 全等 |
+| WT_SHUIGUOYUER | 14 drops | 14 drops | ✅ 全等 |
+| WT_HETUNYUER | 30 drops | 30 drops | ✅ 全等 |
+| **合计** | **133 drops** | **133 drops** | **✅ 零差异** |
+
+- 程序化 diff（含权重逐项比对 + 顺序比对）：**TOTAL baits with diff = 0**。fishing.yml 是 diaoyu.js 的**逐条忠实端口**（每个 id 与 weight 完全一致、顺序一致）。
+- 配合 `FishingListener.select`（`r=nextDouble()*total; r-=weight; r<=0`，R4 total 预算）与 JS `WT_selectRandomDrop` 逐字等价（R4/r9 已证）。
+
+### 阶段状态 —— 静态分析三层全维度覆盖完成
+累计 **23 bug 修复 + 2 死状态清理 + 57 轮核查**，版本 `1.8.12-standalone`。
+
+**静态分析现已跨三层全维度覆盖且清洁**：
+- **代码层**：本会话亲自通读全部 ~40 Java 文件（R45–R53）——1 处真缺陷修复（#23 R6 缓存污染，R46）+ 1 处死状态清理（dropAmount，R50）。
+- **数据层**：配方 amount（20729 specs 实测 max=64 无超 maxStack，勘误 r22）+ data/*.yml 字段类型（R54）全清洁。
+- **行为保真度**：消耗品（R55，13 脚本逐值）/ 作物（R56，6 作物逐值）/ 钓鱼（R57，133 掉落程序化逐条 diff）——**端口是原 JS 的高保真复刻，零数值漂移**。
+
+**静态层面已无已知未覆盖维度**。剩余工作明确为**实机加载/运行验证**（需真实 Paper 1.21.11 + Slimefun4.1 + 美食家/异域花园服务端，本环境不可行）与**内容作者补全**（2 个未定义 id `WT_XIANGYUNCF`/`WT_XUECHENGGQ`）。后续静态轮次预期仅产出冗余复核（如剩余 yl2-7/tang_4-8/crops 个体，均同模式）。

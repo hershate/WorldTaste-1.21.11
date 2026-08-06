@@ -934,3 +934,27 @@ material 引用 / recipe_type / 脚本 / id_alias / item_group / 作物掉落 / 
 
 ### 阶段状态
 累计 **23 bug 修复 + 2 死状态清理 + 54 轮核查**，版本 `1.8.12-standalone`。数据层（配方 amount 边界 20729 specs 实测 max=64 无超 maxStack；data/*.yml 字段类型全正确）经系统校验**清洁**，并勘误 r22 的「amount 至 90」。**代码层（全 ~40 文件）+ 数据层现已双覆盖且清洁**。本轮为验证轮，无代码改动。
+
+## 第 55 轮（2026-08-06）：端口 vs 原脚本 保真度系统交叉核对（13 个独立效果消耗品，验证轮）
+
+> 本轮做此前仅抽检（r8）的「端口数据 vs 原 JS 脚本」**系统交叉核对**：逐一比对 13 个独立效果消耗品（jiu/yan/zhongdu/zhongdu2/xuejia/yl1/tang_1/yangqi/baoshi/bingmianbao/jianya/kangxing/maoxian，覆盖全部效果类型）的 `consumables.yml` 值与原 `scripts/*.js`。**验证轮：13 个全部逐值匹配，无缺陷、无代码改动**。
+
+### 复查确认（本轮无问题项——附逐项证据）
+
+逐脚本比对「原 JS onUse 逻辑」↔「consumables.yml」↔「ConsumableItem 应用」：
+
+| 脚本 | 关键核对点 | 结论 |
+|---|---|---|
+| jiu | `Math.floor(rand*12)+1`↔randomFood=12（端口 `nextInt(12)+1`=1-12）；exh-2↔exhaustion=2；NAUSEA(1000,1)+ABSORPTION(1200,2)；requireHungry | ✅ 全匹配 |
+| yan | 副手 FLINT_AND_STEEL+消耗；ABSORPTION(1400,2)+DOLPHINS_GRACE(1400,1)+HUNGER(800,1) | ✅（r8 修 offhandTool） |
+| zhongdu/2 | food+sat 17/12、exh 1.7/1.2、POISON+UNLUCK(1000,6)、requireHungry | ✅ 全匹配 |
+| xuejia | 副手 SHEARS+消耗；ABSORPTION/DOLPHINS_GRACE/CONDUIT_POWER/FIRE_RESISTANCE(6000,4)+HUNGER(800,1) | ✅（r8 修 offhandTool） |
+| yl1/tang_1/bingmianbao | food/exh/freezeTicks/remainingAir 逐值（yl1: food2/exh2.1/air300；tang_1: food2/sat2/exh0.2/freeze0；bingmianbao: food3/sat3/exh0.3/freeze1000） | ✅ 全匹配 |
+| **baoshi/jianya** | **直设 vs 增量**正确建模：JS `setFoodLevel(0)/setExhaustion(4)` ↔ `foodSet=0/exhaustionSet=4`（端口 `setFoodLevel(opts.foodSet)`/`setExhaustion(opts.exhaustionSet)`），区别于增量 `food/exhaustion` | ✅ 关键语义正确 |
+| yangqi/maoxian | **requireHungry 正确缺失**：原脚本无 `foodLevel>=20` 检查 ↔ consumables 无 requireHungry（端口 `opts.requireHungry=false` 不校验）；yangqi maxAir/remainingAir=8000；maoxian gameMode=ADVENTURE | ✅ 全匹配 |
+
+- **关键正面结论**：端口对三类易错语义均忠实复刻——① 直设（`*Set`）vs 增量（`food/saturation/exhaustion`）；② `requireHungry` 的**有/无**逐脚本对应原脚本的 `foodLevel>=20` 守卫有无；③ `randomFood` 的 1-N 区间；④ `offhandTool`+`consumeOffhand`（r8 已修）。
+- **唯一偏差（已知，非数值 bug）**：端口对所有消耗品固定播 `ENTITY_STRIDER_EAT`，丢失原 per-script 音效（jiu/yl1/tang 饮用声、yan/xuejia 打火石声 + 粒子）——r8 已记为「听觉层有损简化，如需可后续加 sound 字段」。属功能增强范畴（非性能/稳定/安全），本轮不改。
+
+### 阶段状态
+累计 **23 bug 修复 + 2 死状态清理 + 55 轮核查**，版本 `1.8.12-standalone`。端口 vs 原脚本的消耗品保真度经 13 个独立效果脚本**逐值系统核对全部匹配**（含直设/增量、requireHungry 有无、randomFood、offhandTool 等易错语义）。**代码层 + 数据层 + 行为保真度三层现已全覆盖且清洁**。本轮为验证轮，无代码改动。

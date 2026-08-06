@@ -876,3 +876,19 @@ material 引用 / recipe_type / 脚本 / id_alias / item_group / 作物掉落 / 
 
 ### 阶段状态
 累计 **23 bug 修复 + 2 死状态清理 + 50 轮核查**，版本 `1.8.12-standalone`。属性分派层（radiation/soulbound/energy/anti_wither/piglin）解析健壮、无可利用信任向量；清理死状态 `dropAmount`。属性层为验证，唯一动作为死状态清理。
+
+## 第 51 轮（2026-08-06）：FoodsLoader + MenuDef 复核（验证轮）
+
+> 本轮读最后两个未亲自核查的核心文件 [FoodsLoader](../plugin/src/main/java/com/haiman233/worldtaste/load/FoodsLoader.java)（foods.yml→FoodComponent/onEat 桥）与 [MenuDef](../plugin/src/main/java/com/haiman233/worldtaste/machines/MenuDef.java)。**验证轮：无缺陷、无代码改动**。
+
+### 复查确认（本轮无问题项——附证据）
+
+- **FoodsLoader**：清洁。
+  - **【正面】`display = display.clone()` 先克隆再 `FoodHelper.apply`**（[第 38 行](../plugin/src/main/java/com/haiman233/worldtaste/load/FoodsLoader.java)）：`WT.preload.get(effId)` 返回**共享**预加载展示堆；先克隆使 FoodComponent 只烤入克隆、**共享 preload 保持干净**——正是 r46（MobDropsLoader 共享缓存污染）那类「不得改写共享状态」的**正确防御**。
+  - **食物派发为 WTItem 而非 ConsumableItem**：食物脚本为 `kind:eat`（`opts.use=false`），ScriptItemFactory 第 34 行 `opts != null && opts.use` 不成立 → 跳过 ConsumableItem 分支 → 落到 WTItem；onEat 效果经 [第 55 行](../plugin/src/main/java/com/haiman233/worldtaste/load/FoodsLoader.java) `foodOnEat.put(effId, opts)`（仅 `!opts.use`）由 FoodConsumeListener 追加。设计正确（FoodComponent 提供可食 + onEat 脚本提供恢复/效果）。
+  - **foodFail severe 告警**（第 64-67 行）：FoodHelper.apply 反射失败时累计 foodFail 并 severe 提示「这些食物不可食用」，不静默。
+  - 逐条 try/catch（第 31/58 行）；nutrition/saturation/always_eatable 走类型安全 getter（r35 核值）。
+- **MenuDef**：纯数据类（id/title/size=-1/progressSlot=-1/progressItem/items map），无逻辑；size/progressSlot=-1 在 `WTRecipeMachine.constructMenu` 有合理默认（27/22）。无 bug。
+
+### 阶段状态
+累计 **23 bug 修复 + 2 死状态清理 + 51 轮核查**，版本 `1.8.12-standalone`。FoodsLoader（共享 preload 先克隆的正确防御 + 食物派发 WTItem + onEat 桥）与 MenuDef（纯数据）均清洁。至此本会话已亲自通读 ~30 个核心 Java 文件。本轮为验证轮，无代码改动。

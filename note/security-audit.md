@@ -809,3 +809,28 @@ material 引用 / recipe_type / 脚本 / id_alias / item_group / 作物掉落 / 
 
 ### 阶段状态
 累计 **23 bug 修复 + 1 死状态清理 + 47 轮核查**，版本 `1.8.12-standalone`。机器配方匹配核心（去重槽位校验 + SF-id 预筛）经源码级复核**正确**：预筛跳过可证等价于 `isItemSimilar` 的 both-SF 分支（id 检查先于 DistinctiveItem），无静默配方丢失。本轮为验证轮，无代码改动。
+
+## 第 48 轮（2026-08-06）：特殊脚本物品（捕云瓶/巨人丸）+ 派发空值处理（验证轮）
+
+> 本轮复核手写 Java 特殊物品 [SpecialItems](../plugin/src/main/java/com/haiman233/worldtaste/items/SpecialItems.java)（原独立脚本 buyunping/jurenwan）的信任边界与实体生成健壮性，以及 [ScriptItemFactory](../plugin/src/main/java/com/haiman233/worldtaste/items/ScriptItemFactory.java) 对 `SpecialItems.create` 返回 null 的处理。**验证轮：无缺陷、无代码改动**。
+
+### 复查确认（本轮无问题项——附证据）
+
+- **CloudBottleItem（捕云瓶）**：清洁。
+  - **掉落解析先于消耗**（#7，r2 修）：`getById("WT_CLOUD"/"WT_THUNDERCLOUD")` 为 null 时仅 `WT.log` + return，**不消耗瓶子**（防 WT_CLOUD/WT_THUNDERCLOUD 未注册时吞物）。
+  - **幽灵物品修复**：`Stacks.consumeOneInMainHand` 到 0 清空主手。
+  - **dropItemNaturally 用 `sf.getItem().clone()`**：克隆模板投放，不污染共享模板。
+  - **信任边界**：全部读服务端状态——`p.getLocation().getY()`（云层 192-196，服务端权威，客户端不可伪造坐标）、`getWorld().hasStorm()/isThundering()`（世界属性，服务端）、副手 `getByItem`（服务端背包）。破解客户端无法伪造云层/天气/副手来滥用。
+  - **副手派发安全**（r11 已证）：无显式 `getHand()` 检查，但「副手不能持粘液物品」校验在瓶子位于副手时（瓶子自身是 SF 物品）恰好命中 → 提前 return，不误耗主手。
+- **GiantPillItem（巨人丸）**：清洁。
+  - **`e.getHand() != EquipmentSlot.HAND` 显式守卫**（r11）：仅主手触发，副手右键提示并 return。
+  - **消耗先于生成**（消耗 1 颗丸 → spawnEntity）：对「禁止复制」红线正确——spawnEntity 实质不抛，即便抛至多「丢一丸」、绝不复制。
+  - **`p.getTargetBlock(null,5)` 服务端射线**：瞄准方块由服务端 raycast，破解客户端无法伪造生成位置；瞄准天空/虚空时返回 AIR 块、spawnEntity 在该处（巨人下落），不崩。
+  - **GIANT 无 AI + 供给约束**：`EntityType.GIANT`（巨人僵尸）原版默认无 AI、不移动不攻击；每次生成消耗 1 颗需合成的巨人丸 → 生成数量受药丸供给约束，非可免费无限刷。r14 已正式关闭「spawnEntity 绕过领地保护」TODO（视觉实体 + 供给约束 + 对齐原 jurenwan.js）。
+- **ScriptItemFactory 派发空值处理**：[第 38-39 行](../plugin/src/main/java/com/haiman233/worldtaste/items/ScriptItemFactory.java) `SlimefunItem special = SpecialItems.create(...); if (special != null) return special;`——`SpecialItems.create` 对未知 script 默认返回 null，此处 null 检查使其**优雅回退**到后续属性分派（rad/soulbound/antiWither/piglin/placeable/WTItem），**无 NPE**。
+
+### 设计观察（忠实原版，非 bug，不改）
+- 生成的 GIANT **无自然 despawn**（僵尸变体无 despawn 逻辑），长期累计可能增加实体计数；但：(1) 每只消耗 1 颗需合成的药丸（供给约束，非无限）；(2) 无 AI 实体 tick 代价极低；(3) 对齐原 `jurenwan.js`（同样直接 spawnEntity）。属玩法设计 + 服务端清理范畴，非代码缺陷。
+
+### 阶段状态
+累计 **23 bug 修复 + 1 死状态清理 + 48 轮核查**，版本 `1.8.12-standalone`。特殊物品（捕云瓶/巨人丸）信任边界与实体生成健壮性经复核清洁；派发空值处理无 NPE。本轮为验证轮，无代码改动。

@@ -905,3 +905,19 @@ material 引用 / recipe_type / 脚本 / id_alias / item_group / 作物掉落 / 
 
 ### 阶段状态
 累计 **23 bug 修复 + 2 死状态清理 + 52 轮核查**，版本 `1.8.12-standalone`。GroupLoader（两遍加载+级联隔离+Month钳制）、MenuLoader（parseSlots 故障隔离+null兜底）、RegisterConditions（门控逻辑正确）均清洁。本轮为验证轮，无代码改动。剩余未本会话通读的为小文件（GeoLoader/WorkbenchLoader/TemplateLoader/WTGeoResource/WTItem/WTUnplaceableItem/Colors）。
+
+## 第 53 轮（2026-08-06）：剩余小文件复核 + WTGeoResource 共享引用安全性证明（验证轮）
+
+> 本轮读完最后一批小文件，**至此本会话已亲自通读全部 ~40 个 Java 文件**。重点核查 [WTGeoResource.getItem()](../plugin/src/main/java/com/haiman233/worldtaste/items/WTGeoResource.java) 返回共享 preload 引用是否会被 GEO 采掘机变异污染（r46 同类「共享可变引用」隐患；WUWEI_GEOYAN 被 271 配方引用，若污染影响大）。**验证轮：无缺陷、无代码改动**。
+
+### 复查确认（本轮无问题项——附证据）
+
+- **【已证安全】WTGeoResource.getItem() 返回共享 preload 引用**：经核 REF GEO 采掘路径，Slimefun **在消费点克隆**——[GEOMiningOperation:27](../REF/RykenSlimeCustomizer-1.21.11/REF/Slimefun4.1/src/main/java/io/github/thebusybiscuit/slimefun4/implementation/operations/GEOMiningOperation.java) `super(resource.getItem().clone(), totalTicks)`。GEOMiner 其余 `getItem()` 调用均**非变异**：`inv.fits(resource.getItem(), OUTPUT_SLOTS)`（只读容量检查，第 323 行）、`CustomItemStack.create(resource.getItem(), …)`（指南展示，create 内部克隆，第 235 行）、`inv.pushItem(operation.getResult(), …)`（推入的是 operation 的**克隆结果**、非原始 getItem，第 300 行）。故共享 preload **永不被 GEO 路径变异**——WTGeoResource 遵循标准 Slimefun GEOResource 模式（返回原物、消费点克隆），**非 bug**，不改（改克隆反而偏离标准模式 + r3 已保持现状）。
+- **GeoLoader**：清洁。`ItemsLoader.register` 先注册为普通物品、再注册 WTGeoResource；`sup==null?0:sup.getInt(...)` 三环境 supply null 安全；`NamespacedKey(id.toLowerCase())`；逐条 try/catch（r3 GEO 绑定分析仍成立）。
+- **WorkbenchLoader**：标准 loader（input/output 默认 [10]/[16]、capacity/energyPerCraft/click getInt、readRecipes、speed=1）；逐条 try/catch。清洁。
+- **TemplateLoader**：`byTemplate` 按 templateId(大写) 分组 + `all` 汇总；`consumption=getInt("consumption", getInt("energyPerCraft",8))` 回退链；moreOutputIfMoreTemplates/templateSlot 读取；逐条 try/catch。清洁。
+- **WTItem / WTUnplaceableItem**：平凡包装（SlimefunItem / +NotPlaceable）。清洁。
+- **Colors**：`{#RRGGBB}`/`&#RRGGBB`/`&` 码三路；`toBukkitHex` 产出 `§x§r…` **无 `$`/`\`** → `appendReplacement` 无转义问题（r4/r20）；null 安全；`c(List)` 逐条。清洁。
+
+### 阶段状态
+累计 **23 bug 修复 + 2 死状态清理 + 53 轮核查**，版本 `1.8.12-standalone`。**本会话已亲自通读全部 ~40 个 Java 文件**（覆盖：主类/加载编排/全部 loader/读取器/行为注册表/5 监听器/机器类×4/物品类/属性层/特殊物品/工具）。WTGeoResource 共享引用经 REF 证明安全（GEO 消费点克隆）。本轮为验证轮，无代码改动。后续转向数据层校验（data/*.yml 字段范围/类型、配方 amount>maxStackSize）。

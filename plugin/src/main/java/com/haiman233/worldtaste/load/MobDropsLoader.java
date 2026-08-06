@@ -27,8 +27,10 @@ public final class MobDropsLoader {
             ConfigurationSection s = y.getConfigurationSection(id);
             if (s == null) continue;
             try {
-                // mob_drops 无 recipe_type/recipe：补充为 NULL 空配方以复用注册
-                if (!s.isSet("recipe_type")) s.set("recipe_type", "NULL");
+                // mob_drops 无 recipe_type/recipe：ItemsLoader.register 的 recipe_type 默认即为 "NULL"
+                // （RecipeTypes.resolve("NULL")→RecipeType.NULL），故无需补充。
+                // 不得在此向【共享】配置写入：R6 文件名缓存后 Yaml.loadResource 返回共享实例，
+                // set 会污染缓存、违背「全部 Loader 只读」不变量（曾为此遗漏，r46 移除该冗余 set）。
                 if (!ItemsLoader.register(id, s)) {
                     skip++;
                     continue;

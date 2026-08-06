@@ -237,6 +237,7 @@ R3 曾明确放弃此方向（「加载主体代价是 preloadDisplays 内 Playe
 - **共享同实例安全**：grep 全插件 `y.set(`/`section.set(`/`config.set(` **零命中**——全部 Loader 仅**读取**配置
   （`getKeys`/`getConfigurationSection`/`getString`/`getInt`…），从不写入。故跨 preloadDisplays 与各 Loader 共享同一 `YamlConfiguration`
   实例**行为完全等价**（无人依赖实例身份或对其进行修改）。
+  > ⚠️ **勘误（2026-08-06，安全审查 r46）**：本断言当时**有误**——`MobDropsLoader` 曾有一处 `s.set("recipe_type","NULL")`（写入共享缓存）。该 grep 漏网。经核此 set **冗余**（`ItemsLoader.register` 的 recipe_type 默认即 `"NULL"`）、且当前恰好无害（mob_drops recipe_type 单一消费 + preloadDisplays 先于其执行），但它在 R6 共享缓存上写入，违背「只读共享」前提。r46 已**删除该冗余 set**，使本不变量**真正成立**。详见 [../../security-audit.md](../../security-audit.md) 第 46 轮 #23。
 - **释放安全**：grep `ConfigurationSection|YamlConfiguration` 字段声明——**全部为方法内局部变量**，无任何 Loader 以字段形式持久持有。
   加载后领域对象（SlimefunItem / WTRecipe / Behaviors 配置 / WT.preload 堆 / BlockDrops 等）均不再引用原始解析树，
   `registerListeners` 也不再访问 YAML → 末尾 `clearCache` **不释放任何仍被引用的对象**。

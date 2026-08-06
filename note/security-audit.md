@@ -771,3 +771,25 @@ material 引用 / recipe_type / 脚本 / id_alias / item_group / 作物掉落 / 
 
 ### 阶段状态
 累计 **22 bug 修复 + 1 死状态清理 + 45 轮核查**（当前实际版本 `1.8.11-standalone`；安全审查本体止于 1.8.3，其后 R6–R8 性能改动经本轮复核清洁）。本轮覆盖了 r44 之后才引入的缓存/状态改动，并以优先级级证据固化了 r12 守卫的稳健性。**无新代码缺陷**。剩余唯一路径仍为**实机加载/运行验证**（需真实服务端）。
+
+## 第 46 轮（2026-08-06）：生物掉落/食物监听器整体重读 —— 发现并修复 R6 缓存污染（首个打破 15 轮零发现的真缺陷）
+
+> 本轮重读此前未亲自读过的运行期监听器与配套 loader：[MobDropListener](../plugin/src/main/java/com/haiman233/worldtaste/behavior/MobDropListener.java) / [MobDropsLoader](../plugin/src/main/java/com/haiman233/worldtaste/load/MobDropsLoader.java) / [FoodConsumeListener](../plugin/src/main/java/com/haiman233/worldtaste/behavior/FoodConsumeListener.java) / [FoodHelper](../plugin/src/main/java/com/haiman233/worldtaste/load/FoodHelper.java)。**发现一个真实缺陷并修复**——R6 文件名缓存引入后，唯一一处对**共享**配置的写入污染了缓存不变量。
+
+### 已修复
+
+| # | 严重度 | 位置 | 缺陷 | 后果 | 修复 / commit |
+|---|---|---|---|---|---|
+| 23 | 🟠 级联/缓存污染（潜伏） | [MobDropsLoader.java:31](../plugin/src/main/java/com/haiman233/worldtaste/load/MobDropsLoader.java) | `if (!s.isSet("recipe_type")) s.set("recipe_type", "NULL")` 对**共享** `YamlConfiguration`（R6 文件名缓存后 `Yaml.loadResource` 返回共享实例）执行写入。R6 PERF-AUDIT 曾断言「grep `.set(` 零命中、全部 Loader 只读」——**该断言错误**（此处即漏网的一处） | 当前**恰好无害**（mob_drops 的 recipe_type 仅 MobDropsLoader 单一消费、且 preloadDisplays 在其之前执行），属「靠加载顺序+单消费侥幸成立」的潜伏陷阱：若日后新增读取 mob_drops recipe_type 的 loader、或调整加载顺序，共享缓存会被污染，破坏 R6 的「只读共享」安全前提 | **删除该冗余 set**：`ItemsLoader.register` 第 86 行 `s.getString("recipe_type","NULL")` 在键缺失时已默认返回 `"NULL"`（`RecipeTypes.resolve("NULL")→RecipeType.NULL`），故 set 完全多余。移除后**行为逐字不变**，且使 R6「全部 Loader 只读」不变量**真正成立** — 见本提交 |
+
+> 验证：`./gradlew compileJava` 通过。移除后 mob_drops 仍以 `RecipeType.NULL` 注册（register 默认值即此），与原行为一致。
+
+### 复查确认（本轮无问题项——附证据）
+
+- **[MobDropListener](../plugin/src/main/java/com/haiman233/worldtaste/behavior/MobDropListener.java) onDeath**：清洁。`e.getEntityType().name()`（枚举名，不可空）按实体类型查 `MobDropsLoader.drops`（O(该类型)）；每掉落 `nextInt(100)<chance` 独立滚动；`sf.getItem().clone()` **克隆模板**——必需，否则抢夺附魔的掉落数量调整会写回共享模板、污染全部后续掉落。`chance>0` 在 loader 期已守卫，无 nextInt 越界。各种死因（虚空/`/kill`/摔落）均触发 `EntityDeathEvent` → 正常掉落；非死亡移除（despawn/`/entity remove`）不触发 → 不掉落（正确）。史莱姆分裂为生成新实体非死亡，无重复掉落。
+- **[FoodConsumeListener](../plugin/src/main/java/com/haiman233/worldtaste/behavior/FoodConsumeListener.java) onConsume**：清洁。读**服务端** `e.getItem()`（进食的物品来自服务端背包真值，破解客户端无法伪造）→ `getByItem` 按 SF id 识别 → `foodOnEat` 查表；效果仅作用于进食者自身（setFoodLevel/setSaturation/setExhaustion/addPotionEffect），无跨玩家影响、无物品消耗（消耗由 FoodComponent 原版进食完成）。药水 `type!=null` 守卫齐全。`ignoreCancelled=true`。
+- **[FoodHelper](../plugin/src/main/java/com/haiman233/worldtaste/load/FoodHelper.java) apply**：清洁。反射实例化 `CraftFoodComponent` 全程 `try/catch(Throwable)`，失败置 ok=false + 告警、不抛（上层记 severe）。`nutrition<1→1`、`saturation<0→0`、`canAlwaysEat` 取食物自身 `always_eatable`（对齐 RSC r24）。`editMeta` lambda 内捕获 ok 数组安全。
+- **[ItemsLoader.register](../plugin/src/main/java/com/haiman233/worldtaste/load/ItemsLoader.java)**：`recipe_type` 默认 `"NULL"`（第 86 行）证实 MobDropsLoader 的 set 冗余；`parseAmountRange` 校验 `lo>=1&&hi>=lo`，非法回退 `{1,1}`。
+
+### 阶段状态
+累计 **23 bug 修复 + 1 死状态清理 + 46 轮核查**，版本升至 **`1.8.12-standalone`**。**本轮打破了 r31–r45 连续 15 轮零发现的记录**——证明「即便高度饱和，重读未亲自核查的运行期路径 + 复核新引入改动（R6 缓存）的不变量前提」仍能产出真缺陷。MobDropsLoader 的缓存污染虽当前无害，但移除后使 R6 安全前提由「侥幸」转为「设计」，是值得的零风险加固。

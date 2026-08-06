@@ -851,3 +851,28 @@ material 引用 / recipe_type / 脚本 / id_alias / item_group / 作物掉落 / 
 
 ### 阶段状态
 累计 **23 bug 修复 + 1 死状态清理 + 49 轮核查**，版本 `1.8.12-standalone`。三类机器（多方块/模板/工作台）数据操作顺序、溢出、NPE、消耗机制经整体复核清洁；work 槽 NPE 由 loader 显式守卫。本轮为验证轮，无代码改动。
+
+## 第 50 轮（2026-08-06）：属性分派层复核（AttributeItems/ItemSpec）+ 移除死状态 dropAmount
+
+> 本轮复核「YAML 属性 → Slimefun 物品子类」的属性层 [AttributeItems](../plugin/src/main/java/com/haiman233/worldtaste/items/AttributeItems.java) / [ItemSpec](../plugin/src/main/java/com/haiman233/worldtaste/items/ItemSpec.java)（radiation/soulbound/energy/anti_wither/piglin 解析）。发现并清理一处死状态。属性层本身清洁。
+
+### 已清理
+
+| # | 类型 | 位置 | 说明 | commit |
+|---|---|---|---|---|
+| 24 | 死状态 | `ItemSpec.dropAmount` | grep 确认 `spec.dropAmount` 仅在 `ItemSpec.from` 写入（第 35 行），**全插件无读取**——[ItemsLoader.register:100](../plugin/src/main/java/com/haiman233/worldtaste/load/ItemsLoader.java) 直接用 `parseAmountRange(s.getString("drop_amount","1"))` 重解析（支持 "1"/"1-3" 区间），不读 spec.dropAmount。与 r33 `itemScripts` 同类死状态 | 本提交 |
+
+> 零行为变更（字段从未被读，drop_amount 仍由 parseAmountRange 正确处理）。按 r33 先例（死状态清理不升版），版本维持 `1.8.12-standalone`。`./gradlew compileJava` 通过。
+
+### 复查确认（本轮无问题项——附证据）
+
+- **AttributeItems 各属性类**：清洁。
+  - `RadioactiveConsumable`/`RadioactiveItem`：`getRadioactivity()` 返回 `parseRadiation` 解析的 `Radioactivity` 枚举（ScriptItemFactory 仅在 `rad!=null` 时创建，故 level 必合法）。辐射等级在注册期烤入物品类，客户端不可篡改 → 无滥用。
+  - `SoulboundItem`（marker 接口，死亡保留）/`WitherProofItem`（空 `onAttack`，Slimefun 拦截凋灵破坏）：标记接口，属性属注册物品，无客户端可利用向量。
+  - `PiglinBarterItem.getBarteringLootChance()`：返回 data 的 chance；猪灵以物易物为原版机制（每枚金锭消耗），Slimefun 据服务端 chance 抽样，**无复制**（chance 高仅提高频率，data 驱动）。
+  - `EnergyItem`：`CAPACITOR` + `getCapacity()`=data capacity。capacity∈[5,100000]（r35），客户端不可膨胀容量，无滥用。
+- **`parseRadiation`**：`name==null`→null 守卫在前；`Radioactivity.valueOf(upper)` 仅抛 `IllegalArgumentException`（已 catch）→ null。无 NPE/崩溃路径。
+- **ItemSpec.from**：`script` trim 有 null 守卫；`placeable` 默认 false（对齐 RSC unplaceable）；`piglinChance`/`energyCapacity` 仅 `isSet` 时赋值（ScriptItemFactory 据非 null 分派）；`dropChance` 默认 100（仅 dropFrom!=null 时用）；`dropFrom` 经 `Material.matchMaterial`，null 时 `BlockDrops.add` 内 block==null 守卫忽略（r12）。
+
+### 阶段状态
+累计 **23 bug 修复 + 2 死状态清理 + 50 轮核查**，版本 `1.8.12-standalone`。属性分派层（radiation/soulbound/energy/anti_wither/piglin）解析健壮、无可利用信任向量；清理死状态 `dropAmount`。属性层为验证，唯一动作为死状态清理。

@@ -958,3 +958,27 @@ material 引用 / recipe_type / 脚本 / id_alias / item_group / 作物掉落 / 
 
 ### 阶段状态
 累计 **23 bug 修复 + 2 死状态清理 + 55 轮核查**，版本 `1.8.12-standalone`。端口 vs 原脚本的消耗品保真度经 13 个独立效果脚本**逐值系统核对全部匹配**（含直设/增量、requireHungry 有无、randomFood、offhandTool 等易错语义）。**代码层 + 数据层 + 行为保真度三层现已全覆盖且清洁**。本轮为验证轮，无代码改动。
+
+## 第 56 轮（2026-08-06）：作物保真度系统交叉核对（crops.yml vs seed/*.js，验证轮）
+
+> 本轮系统核对作物端口保真度（r9 仅抽检 aicao）。读 [wt_crop.js](../../scripts/lib/wt_crop.js) 的 `WT_setupCrop(cfg)` 映射，逐一比对 6 个代表性作物（aicao/xhlb/blb/clz/dlj/culi，覆盖 WHEAT/POTATOES/SWEET_BERRY_BUSH/MELON_STEM 与 drops/weightedDrops 两类）的 `crops.yml` 与原 `scripts/seed/*.js`。**验证轮：全部逐值匹配，无缺陷、无代码改动**。
+
+### 复查确认（本轮无问题项——附逐项证据）
+
+逐作物比对「原 JS WT_setupCrop cfg」↔「crops.yml」：
+
+| 作物 | material/maxAge/growMs | drops/weightedDrops | 结论 |
+|---|---|---|---|
+| seed/aicao | WHEAT/7/120000 | drops: WT_AICAO+WT_SEED_AICAO 各 chance=1.0 | ✅ 全匹配 |
+| seed/xhlb、seed/blb | POTATOES/7/120000 | drops 各 2 项 chance=1.0 | ✅ 全匹配 |
+| seed/clz | SWEET_BERRY_BUSH/3/90000 | drops 2 项 chance=1.0 | ✅ 全匹配 |
+| seed/dlj | MELON_STEM/6/120000 | weightedDrops: WT_DLJ 0.7 / WT_CDLJ 0.2 / WT_LDLJ 0.1 / WT_SEED_DLJ 0.3 | ✅ **权重逐值匹配** |
+| seed/culi | SWEET_BERRY_BUSH/3/90000 | weightedDrops: WT_CULI 0.7 / WT_HEICULI 0.2 / WT_LANCULI 0.1 | ✅ **权重逐值匹配** |
+
+- **【澄清】crops.yml 概率/权重为分数制（与 JS 一致）**：实测 `drops.chance` 全 237 项均为 **1.0**（分数，非百分比），`weightedDrops.weight` 124 项 ∈ **[0.01, 0.95]**（分数）。与 JS `Math.random() < chance` 及端口 `rnd.nextDouble() < d.chance` 一致（分数制）。**注意与 mob_drops/BlockDrops 的百分比制 [0,100] 不同**——两套约定各自内部一致、各自匹配其原来源，**无跨界混用**。先前「分数 vs 百分比」疑虑**经实测澄清：无 mismatch**。
+- **加权选择算法逐字等价**：端口 `CropBlock.onBreak`（`r=nextDouble()*total; r-=weight; r<=0 选该项；末项兜底`）与 JS `WT_selectRandomDrop`（同式，循环末次迭代 r 变负即返回末项）在全部 r∈[0,total) 上**产出同分布**；r11 的「末项兜底」正是对齐 JS「循环末次返回末项」的浮点边界，**无行为分歧**。
+- `stages:"small"` ↔ 端口固定 SMALL_STEPS（= JS `WT_SMALL_STEPS` 同数组）；`cropId` ↔ JS `id`（收获时 SF 方块身份校验）；生长公式 `floor(maxAge*i/len)` 一致（r36）。
+- **已知时序差（非数值 bug）**：端口省略 JS 的 `spawnTick`（默认 2 tick）启动延迟（r6 已记，终态一致）。
+
+### 阶段状态
+累计 **23 bug 修复 + 2 死状态清理 + 56 轮核查**，版本 `1.8.12-standalone`。作物保真度经 6 个代表性作物（4 种 material × drops/weightedDrops 两类）**逐值系统核对全匹配**；澄清 crops 分数制 vs mob_drops 百分比制无跨界混用；加权选择算法与 JS 逐字等价。**代码层 + 数据层 + 行为保真度（消耗品 R55 / 作物 R56 / 钓鱼 r9）三层全覆盖且清洁**。本轮为验证轮，无代码改动。

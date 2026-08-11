@@ -6,6 +6,8 @@
 
 **WorldTaste 需要“带 JavaScript 脚本系统”的 RSC 才能正常工作；而仓库附带的 REF 参考源码是“已移除脚本系统”的 `29.0-PaperPure` 版本，二者不兼容。**
 
+> 此结论仅针对**脚本版**（[../legacy-rsc/](../legacy-rsc/)）。**独立插件版**（[../plugin/](../plugin/)）已用 Java 原生重写全部脚本行为，不依赖 RSC 的 JS 引擎，**不受此不兼容影响**——这也是仓库主线切换到独立插件版的原因之一。
+
 若用 REF 的 29.0-PaperPure 运行 WorldTaste，以下功能将**全部失效**（且很可能静默失效）：
 
 - 钓鱼系统（`scriptListener: diaoyu`）
@@ -18,8 +20,8 @@
 
 ### 1. WorldTaste 依赖脚本系统
 
-- [info.yml](../info.yml) 第 11 行：`scriptListener: diaoyu`（注册全局事件监听器）。
-- [items.yml](../items.yml) 大量条目带 `script:` 字段（如 `WT_SEED_XHLB` → `script: seed/xhlb`）。
+- [info.yml](../legacy-rsc/info.yml) 第 11 行：`scriptListener: diaoyu`（注册全局事件监听器）。
+- [items.yml](../plugin/content/items.yml) 大量条目带 `script:` 字段（如 `WT_SEED_XHLB` → `script: seed/xhlb`）。
 - `scripts/` 约 221 个 JS 文件，依赖 RSC 注入的 `server`/`getSfItemById`/`getSfItemByItem`/`SlimefunItem`/`StorageCacheUtils` 等全局绑定（见 [scripts.md §3](scripts.md)）。
 - 这些能力属于 RSC 的 **GraalVM JS 脚本系统**（`JavaScriptEval`/`ScriptEval`/`ScriptableEventListener`/ByteBuddy 动态监听器）。
 

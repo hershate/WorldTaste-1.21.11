@@ -961,7 +961,7 @@ material 引用 / recipe_type / 脚本 / id_alias / item_group / 作物掉落 / 
 
 ## 第 56 轮（2026-08-06）：作物保真度系统交叉核对（crops.yml vs seed/*.js，验证轮）
 
-> 本轮系统核对作物端口保真度（r9 仅抽检 aicao）。读 [wt_crop.js](../../scripts/lib/wt_crop.js) 的 `WT_setupCrop(cfg)` 映射，逐一比对 6 个代表性作物（aicao/xhlb/blb/clz/dlj/culi，覆盖 WHEAT/POTATOES/SWEET_BERRY_BUSH/MELON_STEM 与 drops/weightedDrops 两类）的 `crops.yml` 与原 `scripts/seed/*.js`。**验证轮：全部逐值匹配，无缺陷、无代码改动**。
+> 本轮系统核对作物端口保真度（r9 仅抽检 aicao）。读 [wt_crop.js](../legacy-rsc/scripts/lib/wt_crop.js) 的 `WT_setupCrop(cfg)` 映射，逐一比对 6 个代表性作物（aicao/xhlb/blb/clz/dlj/culi，覆盖 WHEAT/POTATOES/SWEET_BERRY_BUSH/MELON_STEM 与 drops/weightedDrops 两类）的 `crops.yml` 与原 `scripts/seed/*.js`。**验证轮：全部逐值匹配，无缺陷、无代码改动**。
 
 ### 复查确认（本轮无问题项——附逐项证据）
 
@@ -985,7 +985,7 @@ material 引用 / recipe_type / 脚本 / id_alias / item_group / 作物掉落 / 
 
 ## 第 57 轮（2026-08-06）：钓鱼保真度系统交叉核对（fishing.yml vs diaoyu.js，程序化逐条 diff，验证轮）
 
-> 本轮以 Python 程序化逐条 diff 重新核对钓鱼端口保真度（r9 曾手工核对）。解析 [diaoyu.js](../../scripts/diaoyu.js) 的 5 张掉落表（`itemId/weight`）+ `WT_setupFishing` 鱼饵映射，与 [fishing.yml](../plugin/src/main/resources/data/fishing.yml) 全量比对。**验证轮：零差异，无代码改动**。
+> 本轮以 Python 程序化逐条 diff 重新核对钓鱼端口保真度（r9 曾手工核对）。解析 [diaoyu.js](../legacy-rsc/scripts/diaoyu.js) 的 5 张掉落表（`itemId/weight`）+ `WT_setupFishing` 鱼饵映射，与 [fishing.yml](../plugin/src/main/resources/data/fishing.yml) 全量比对。**验证轮：零差异，无代码改动**。
 
 ### 复查确认（本轮无问题项——程序化 diff 实测）
 

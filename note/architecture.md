@@ -2,10 +2,10 @@
 
 ## 1. 项目性质
 
-WorldTaste **不是 Java 项目**，而是一份 RSC 附属的**纯配置 + 脚本**资产：
+本文描述 WorldTaste **内容 YAML** 的结构与条目统计。这套内容 yml 脚本版与独立插件版**共用同一份**（现位于 [../plugin/content/](../plugin/content/)；脚本版归档另有一份冻结副本在 [../legacy-rsc/](../legacy-rsc/)）：
 
-- **YAML 配置**：定义物品、机器、配方、物品组、菜单等，由 RSC 的各类 `Reader` 加载（Reader 映射详见 [../REF/RykenSlimeCustomizer-1.21.11/note/content-types.md](../REF/RykenSlimeCustomizer-1.21.11/note/content-types.md)，只读参考）。
-- **JavaScript 脚本**：实现需要逻辑的行为（食物效果、作物生长、钓鱼掉落等），由 RSC 的 GraalVM JS 引擎求值（见 [scripts.md](scripts.md)）。
+- **YAML 配置**：定义物品、机器、配方、物品组、菜单等。脚本版由 RSC 各 `Reader` 加载（Reader 映射详见 [../REF/RykenSlimeCustomizer-1.21.11/note/content-types.md](../REF/RykenSlimeCustomizer-1.21.11/note/content-types.md)，只读参考）；独立插件版由自带 Loader 加载（见 [standalone-plugin.md](standalone-plugin.md)）。
+- **JavaScript 脚本**（仅脚本版）：实现需要逻辑的行为（食物效果、作物生长、钓鱼掉落等），由 RSC 的 GraalVM JS 引擎求值（见 [scripts.md](scripts.md)）；独立插件版已用 Java 原生重写全部脚本行为，不再依赖 JS。
 
 > 注意：RSC 各 Reader 的加载顺序固定（groups → recipe_types → … → researches），
 > 详见 [../REF/RykenSlimeCustomizer-1.21.11/note/architecture.md §3](../REF/RykenSlimeCustomizer-1.21.11/note/architecture.md)。
@@ -16,21 +16,21 @@ WorldTaste **不是 Java 项目**，而是一份 RSC 附属的**纯配置 + 脚�
 
 | 配置文件 | RSC Reader（参考） | 产出类型 | 条目数 | 说明 |
 |---|---|---|---|---|
-| [info.yml](../info.yml) | Loader 直读 | 元信息 | — | id/name/version/`scriptListener: diaoyu`/pluginDepends/loadStartTexts |
-| [groups.yml](../groups.yml) | `ItemGroupReader` | `RSCItemGroup` | 74 | 物品组/分类（`worldtaste` 根 + `ws_*` 子组/按钮/嵌套） |
-| [recipe_types.yml](../recipe_types.yml) | `RecipeTypesReader` | `CustomRecipeType` | 40 | 自定义配方类型（五味厨房/发酵箱/烘焙炉/瓦锅/炸锅/饮料机/卷烟台/屠宰/钓鱼…） |
-| [mob_drops.yml](../mob_drops.yml) | `MobDropsReader` | `CustomMobDrop` | 106 | 生物掉落（屠宰系统产出的肉等） |
-| [geo_resources.yml](../geo_resources.yml) | `GeoResourceReader` | `CustomGeoResource` | 1 | GEO 资源 |
-| [items.yml](../items.yml) | `ItemReader` | `CustomItem` 各子类 | ~3094 | **主体**（2.5MB）：种子/食材/鱼类/工具/消耗品/装饰等，含 `script:` 钩子 |
-| [foods.yml](../foods.yml) | `FoodReader` | `CustomFood` | 189 | 原版式食物（`onEat` 自动进食脚本） |
-| [menus.yml](../menus.yml) | `MenuReader` | `CustomMenu` | 24 | 自定义 GUI 菜单 |
-| [machines.yml](../machines.yml) | `MachineReader` | `CustomMachine`/`CustomNoEnergyMachine` | 142 | 通用机器（部分为脚本驱动） |
-| [recipe_machines.yml](../recipe_machines.yml) | `RecipeMachineReader` | `CustomRecipeMachine` | 21 | 配方驱动机器 |
-| [mb_machines.yml](../mb_machines.yml) | `MultiBlockMachineReader` | `CustomMultiBlockMachine` | 15 | 多方块机器（文件 75k 行：配方内联在 `recipes` 段） |
-| [template_machines.yml](../template_machines.yml) | `TemplateMachineReader` | `CustomTemplateMachine` | 2 | 模板机器 |
-| [linked_recipe_machines.yml](../linked_recipe_machines.yml) | `LinkedRecipeMachineReader` | `CustomLinkedRecipeMachine` | 4 | 关联输出配方机器 |
-| [workbenches.yml](../workbenches.yml) | `WorkbenchReader` | `CustomWorkbench` | 2 | 工作台（百味万用炉等） |
-| [researches.yml](../researches.yml) | `ResearchReader` | `Research` | 0 | **空**（本附属未使用科技解锁） |
+| [info.yml](../legacy-rsc/info.yml) | Loader 直读 | 元信息 | — | id/name/version/`scriptListener: diaoyu`/pluginDepends/loadStartTexts |
+| [groups.yml](../plugin/content/groups.yml) | `ItemGroupReader` | `RSCItemGroup` | 74 | 物品组/分类（`worldtaste` 根 + `ws_*` 子组/按钮/嵌套） |
+| [recipe_types.yml](../plugin/content/recipe_types.yml) | `RecipeTypesReader` | `CustomRecipeType` | 40 | 自定义配方类型（五味厨房/发酵箱/烘焙炉/瓦锅/炸锅/饮料机/卷烟台/屠宰/钓鱼…） |
+| [mob_drops.yml](../plugin/content/mob_drops.yml) | `MobDropsReader` | `CustomMobDrop` | 106 | 生物掉落（屠宰系统产出的肉等） |
+| [geo_resources.yml](../plugin/content/geo_resources.yml) | `GeoResourceReader` | `CustomGeoResource` | 1 | GEO 资源 |
+| [items.yml](../plugin/content/items.yml) | `ItemReader` | `CustomItem` 各子类 | ~3094 | **主体**（2.5MB）：种子/食材/鱼类/工具/消耗品/装饰等，含 `script:` 钩子 |
+| [foods.yml](../plugin/content/foods.yml) | `FoodReader` | `CustomFood` | 189 | 原版式食物（`onEat` 自动进食脚本） |
+| [menus.yml](../plugin/content/menus.yml) | `MenuReader` | `CustomMenu` | 24 | 自定义 GUI 菜单 |
+| [machines.yml](../plugin/content/machines.yml) | `MachineReader` | `CustomMachine`/`CustomNoEnergyMachine` | 142 | 通用机器（部分为脚本驱动） |
+| [recipe_machines.yml](../plugin/content/recipe_machines.yml) | `RecipeMachineReader` | `CustomRecipeMachine` | 21 | 配方驱动机器 |
+| [mb_machines.yml](../plugin/content/mb_machines.yml) | `MultiBlockMachineReader` | `CustomMultiBlockMachine` | 15 | 多方块机器（文件 75k 行：配方内联在 `recipes` 段） |
+| [template_machines.yml](../plugin/content/template_machines.yml) | `TemplateMachineReader` | `CustomTemplateMachine` | 2 | 模板机器 |
+| [linked_recipe_machines.yml](../plugin/content/linked_recipe_machines.yml) | `LinkedRecipeMachineReader` | `CustomLinkedRecipeMachine` | 4 | 关联输出配方机器 |
+| [workbenches.yml](../plugin/content/workbenches.yml) | `WorkbenchReader` | `CustomWorkbench` | 2 | 工作台（百味万用炉等） |
+| [researches.yml](../legacy-rsc/researches.yml) | `ResearchReader` | `Research` | 0 | **空**（本附属未使用科技解锁） |
 
 > 说明：本仓库不含 `armors.yml`/`capacitors.yml`/`generators.yml`/`solar_generators.yml`/`mat_generators.yml`/`simple_machines.yml`/`supers.yml`/`super_multi_block_machines.yml`/`generations.yml`，对应能力未使用。
 
@@ -39,11 +39,11 @@ WorldTaste **不是 Java 项目**，而是一份 RSC 附属的**纯配置 + 脚�
 - `WT_` 前缀：WorldTaste 自有物品（如 `WT_BAIWEIDIAOGAN` 百味钓竿、`WT_SEED_AICAO` 艾草种子）。
 - `GN_` 前缀：引用 Gastronomicon（美食家）物品（如 `GN_RAW_TUNA`）。
 - 原版 Material：直接用枚举名（如 `COD`、`SALMON`、`NAUTILUS_SHELL`）。
-- 配方类型 `WUWEI_*`：五味系列自定义机器（见 [recipe_types.yml](../recipe_types.yml)）。
+- 配方类型 `WUWEI_*`：五味系列自定义机器（见 [recipe_types.yml](../plugin/content/recipe_types.yml)）。
 
 ### `items.yml` 物品结构示例
 
-种子条目典型结构（见 [items.yml](../items.yml) 顶部）：
+种子条目典型结构（见 [items.yml](../plugin/content/items.yml) 顶部）：
 
 ```yaml
 WT_SEED_XHLB:
@@ -62,14 +62,14 @@ WT_SEED_XHLB:
 
 ## 3. 多方块机器配方“双份”约定
 
-[README.md](../README.md)「致开发者」明确：若 `items.yml` 里使用了自定义多方块机器，需在 [mb_machines.yml](../mb_machines.yml) 找到对应多方块，**把配方额外再列一份**到该多方块的 `recipes` 段。这是 mb_machines.yml 体积巨大（75k 行）的主要原因。
+[README.md](../README.md)「致开发者」明确：若 `items.yml` 里使用了自定义多方块机器，需在 [mb_machines.yml](../plugin/content/mb_machines.yml) 找到对应多方块，**把配方额外再列一份**到该多方块的 `recipes` 段。这是 mb_machines.yml 体积巨大（75k 行）的主要原因。
 
 ## 4. 脚本 / 公共库架构（概览）
 
 脚本采用**薄壳 + 公共库**模式：每个脚本只 `(0, eval)` 引入一个公共库，再用一行配置/数据调用其 `WT_setup*` 函数。详见 [scripts.md](scripts.md)。
 
 ```
-scripts/
+legacy-rsc/scripts/
 ├── lib/                 # 公共库（被 eval 引入，不直接作 script 字段）
 │   ├── wt_food.js       # 食物进食逻辑（WT_eatConsumable / WT_eatFood）
 │   ├── wt_fishing.js    # 钓鱼逻辑（WT_setupFishing）

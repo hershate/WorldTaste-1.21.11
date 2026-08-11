@@ -36,7 +36,11 @@ cd plugin
 2. 装齐上表中的前置插件。
 3. 重启服务器（不建议热重载）。
 
-构建说明：编译期依赖 Paper 1.21.11 API 与本仓库 `REF/` 内的适配版 Slimefun4.1（`compileOnly`，不打包进 jar）。运行期内容 YAML 与脚本参数数据（`data/*.yml`）已一并打入 jar。
+构建说明：
+
+- 需要 **JDK 21**（Gradle `toolchain` 已固定；用仓库自带的 `./gradlew` 即可，无需单独安装 Gradle）。
+- 编译期依赖 Paper 1.21.11 API（自动拉取）与 `REF/` 内的适配版 Slimefun4.1（`compileOnly`，不打包进 jar）。⚠️ `REF/` 未纳入 git（见 `.gitignore`），贡献者需自行准备该 Slimefun4.1 jar。
+- 运行期内容 YAML（来自 [`plugin/content/`](plugin/content/)）与脚本参数数据（`data/*.yml`）已一并打入 jar，产物自包含，放入 `plugins/` 即可运行。
 
 ## 功能概览
 

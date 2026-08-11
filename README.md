@@ -1,80 +1,65 @@
 # 尘世百味 WorldTaste
 
-<img width="580" height="580" alt="worldtaste" src="https://github.com/user-attachments/assets/89593566-830a-466a-b8f2-6cd2b2459d0b" />
+<img width="220" height="220" alt="worldtaste" src="https://github.com/user-attachments/assets/89593566-830a-466a-b8f2-6cd2b2459d0b" />
 
-尘世百味是用RykenSlimefunCustomizer插件写成的一份配置文件，旨在向粘液科技中加入上千种来自世界各地的美食（绝对是上千种）
+尘世百味为 Slimefun（粘液科技）添加来自世界各地的美食、作物、钓鱼与屠宰等内容。
 
-尘世百味添加了多种作物，包含各类变种作物，向游戏中添加了钓鱼系统，可以用鱼饵钓上各式各样的鱼类。添加了屠宰系统，为所有生物添加了对应的肉，屠宰获得的食材可用于烹饪
+> 本仓库提供两种形态，内容一致，仅运行方式不同：
+> - **独立插件版**（[plugin/](plugin/)，主线）：单个 jar，不依赖 RykenSlimefunCustomizer，放入 `plugins/` 即可。
+> - **RSC 脚本版**（根目录 `*.yml` + [scripts/](scripts/)，历史形态）：作为 RykenSlimefunCustomizer 附属加载。
 
-尘世百味分类涵盖了所有烹饪需求，添加的美食包含发酵食品，香烟，烘焙，快餐，肉食，中餐，汤与炖菜，冰激凌与糖，日料，甜品，零食，饮品(包含酿酒/果汁)，果切，怪味餐和功能丸子。
+## 当前状态
 
-如果你是建筑党，想装饰你的厨房，尘世百味还添加了各式各样的厨房装饰
+- 独立插件版：`1.8.12-standalone`（见 [plugin/build.gradle.kts](plugin/build.gradle.kts)、[plugin.yml](plugin/src/main/resources/plugin.yml)）。
+- 已完成多轮静态审查，覆盖安全性、性能与对原脚本的行为保真度，记录在 [note/](note/)。
+- ⚠️ 诚实声明：**尚未在真实服务端实机验证**。编译与打包通过、内容 YAML 经解析校验合法，但建议在投入使用前先在测试服完整跑一次（参考 [note/server-verification-checklist.md](note/server-verification-checklist.md)）。
 
-除此之外，尘世百味在分类的第二页还添加了主题餐饮，目前已添加愚人节和无尽贪婪两种主题餐饮(后续会更新)
+## 前置依赖
 
-# 如何安装
+| 类型 | 插件 |
+|---|---|
+| 必须 | Slimefun（需适配 Minecraft 1.21.11 的版本） |
+| 必须 | [Gastronomicon](https://builds.guizhanss.com/SlimefunGuguProject/Gastronomicon/master)（美食家）、[ExoticGarden](https://builds.guizhanss.com/balugaq/ExoticGardenComplex/master)（异域花园·复合花园 fork） |
+| 可选 | [Cultivation](https://builds.guizhanss.com/SlimefunGuguProject/Cultivation/main)（农耕工艺）、[InfinityExpansion](https://builds.guizhanss.com/SlimefunReloadingProject/InfinityExpansion/master)（无尽贪婪）、LogiTech |
 
-1、安装尘世百味需要服务器安装RykenSlimefunCustomizer，简称rsc，在此[下载RykenSlimefunCustomizer](https://builds.guizhanss.com/SlimefunReloadingProject/RykenSlimeCustomizer/main)
+> 提示：若 Gastronomicon 的捕鱼网拉低 TPS，可在其配置中禁用捕鱼网（粘液 ID `GN_FISHING_NET_I/II/III`），或改用本附属性能更优的捕鱼器。
 
-2、将下载好的rsc拖入plugins文件，重启服务器，让rsc生成RykenSlimefunCustomizer文件夹
+## 构建与安装（独立插件版）
 
-3、[点此下载尘世百味](https://github.com/haiman233/WorldTaste/releases) ，并将下载的文件解压，将整个文件夹拖入server\plugins\RykenSlimefunCustomizer\addons目录下即可
+```bash
+cd plugin
+./gradlew build
+# 产物：plugin/build/libs/WorldTaste-1.8.12-standalone.jar
+```
 
-4、检查尘世百味需要的前置有没有装齐
+1. 将构建出的 jar 放入服务器的 `plugins/` 目录。
+2. 装齐上表中的前置插件。
+3. 重启服务器（不建议热重载）。
 
-5、重启服务器！！！ 切勿使用热重载！！
+构建说明：编译期依赖 Paper 1.21.11 API 与本仓库 `REF/` 内的适配版 Slimefun4.1（`compileOnly`，不打包进 jar）。运行期内容 YAML 与脚本参数数据（`data/*.yml`）已一并打入 jar。
 
+## 功能概览
 
-![当前版本](https://img.shields.io/github/v/release/haiman233/WorldTaste?include_prereleases)
-![下载数](https://img.shields.io/github/downloads/haiman233/WorldTaste/total)
+- **食物**：烘焙、肉食、中餐、汤与炖菜、饮品（酿酒/果汁）、甜品、零食、发酵食品、功能丸子等十余个分类。
+- **作物**：多种作物及其变种，带生长与收获机制。
+- **钓鱼**：百味钓竿搭配 5 种鱼饵，按权重掉落各类鱼产。
+- **屠宰**：为各类生物添加对应的肉与食材掉落。
+- **其他**：厨房装饰，以及愚人节 / 无尽贪婪主题餐饮。
 
-## 前置插件需求
-前置(必须)：
-- Slimefun
-- GuizhanLibPlugin [点此下载](https://builds.guizhanss.com/ybw0014/GuizhanLibPlugin/master)
-- Gastronomicon（美食家）[点此下载](https://builds.guizhanss.com/SlimefunGuguProject/Gastronomicon/master)
-- ExoticGarden（异域花园）(推荐使用复合花园) [点此下载](https://builds.guizhanss.com/balugaq/ExoticGardenComplex/master)
+## RSC 脚本版（备选）
 
-软前置(可选)：
-- Cultivation（农耕工艺） [点此下载](https://builds.guizhanss.com/SlimefunGuguProject/Cultivation/main)
-- InfinityExpansion（无尽贪婪）[点此下载](https://builds.guizhanss.com/SlimefunGuguProject/InfinityExpansion/master)
+若希望以 RykenSlimefunCustomizer 附属方式使用：
 
-## 注意事项
+1. 安装保留 GraalVM JS 脚本系统的 RSC（≤ `28.7-Modified` 系列）。
+2. 将本仓库整个文件夹放入 `plugins/RykenSlimefunCustomizer/addons/WorldTaste/`。
+3. 重启服务器。
 
-若遇到美食家附属(Gastronomicon)拉低服务器tps的情况，请ban掉美食家的捕鱼网（粘液ID为：GN_FISHING_NET_I、GN_FISHING_NET_II、GN_FISHING_NET_III）
+> ⚠️ 注意：本仓库 `REF/` 内附带的 RSC 参考源码为 `29.0-PaperPure`，**已移除 JS 脚本系统**，无法驱动脚本版。详见 [note/compatibility.md](note/compatibility.md)。
 
-其卡服原理与至尊研究院附属的发电机同理(循环的环境检测)
+## 致谢
 
-尘世百味添加了性能更好的机器(捕鱼器)来替代美食家捕鱼网的功能(尘世百味1.7版本加入)
+感谢 [balugaq](https://github.com/balugaq) 编写的 [rsc-editor](https://github.com/balugaq/RSCEditor)，以及 balugaq、Eventually、南柯梦在脚本编写上给予的帮助。
 
-美食家的种子爆率可以在美食家的配置文件中调整（1.20.3之前为grass，1.20.3之后为short_grass）
+## 文档
 
-## 公告
-
-1、十分感谢[balugaq](https://github.com/balugaq)编写的[rsc-editor](https://github.com/balugaq/RSCEditor)，大大加快了尘世百味的推出进程
-
-感谢balugaq、Eventually和南柯梦在脚本编写上给予的帮助
-
-2、请勿使用尘世百味旧版本（有严重bug，最新版已全部修复）
-
-
-## 游戏内展示
-
-<img width="300" height="300" alt="74bb99b8868ad29f91af381108bc1a38" src="https://github.com/user-attachments/assets/c674dcd3-d308-43db-a639-230b9c9e72da" />
-<img width="300" height="300" alt="d794707fd52c5ecefc2988ae4938b681" src="https://github.com/user-attachments/assets/068c3c29-6566-40bc-9f02-0ab2e61e9dfb" />
-
-
-# 致开发者
-
-如果你想要向尘世百味中添加自己的食物，需要先详细阅读[rsc wiki](https://rsc.hiworldmc.com/)，了解基础的编写流程
-
-需要额外注意的是，如果在items文件里使用了自定义的多方块机器，需要在mb_machines文件里找到相应的多方块机器，并将配方额外的列一份在多方块的recipes里
-
-尘世百味自带了制作食物所需的js脚本文件，使用相应脚本文件只需将文件名输入在items文件的 **script: ** 之后
-
-脚本中，只含数字的脚本，对应着食物恢复的饥饿值和饱和度，“yan”代表这是香烟使用的脚本，“tang”代表这是汤使用的脚本，还有一些其它脚本，可以自行体验一番
-
-如果你也想为这个附属做一些贡献，欢迎提pr
-
-
-
+项目设计与审查要点见 [note/](note/)，索引见 [note/README.md](note/README.md)。各版本基线记录见 [note/release/](note/release/)。

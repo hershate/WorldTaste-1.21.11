@@ -6,7 +6,7 @@
 
 > 本仓库提供两种形态，内容一致，仅运行方式不同：
 > - **独立插件版**（[plugin/](plugin/)，主线）：单个 jar，不依赖 RykenSlimefunCustomizer，放入 `plugins/` 即可。
-> - **RSC 脚本版**（根目录 `*.yml` + [scripts/](scripts/)，历史形态）：作为 RykenSlimefunCustomizer 附属加载。
+> - **RSC 脚本版**（[legacy-rsc/](legacy-rsc/)，历史形态）：纯 YAML 配置 + JavaScript 脚本，作为 RykenSlimefunCustomizer 附属加载（自包含，详见 [legacy-rsc/README.md](legacy-rsc/README.md)）。
 
 ## 当前状态
 
@@ -51,7 +51,7 @@ cd plugin
 若希望以 RykenSlimefunCustomizer 附属方式使用：
 
 1. 安装保留 GraalVM JS 脚本系统的 RSC（≤ `28.7-Modified` 系列）。
-2. 将本仓库整个文件夹放入 `plugins/RykenSlimefunCustomizer/addons/WorldTaste/`。
+2. 将 [legacy-rsc/](legacy-rsc/) 整个文件夹放入 `plugins/RykenSlimefunCustomizer/addons/WorldTaste/`（它自包含全部脚本与配置）。
 3. 重启服务器。
 
 > ⚠️ 注意：本仓库 `REF/` 内附带的 RSC 参考源码为 `29.0-PaperPure`，**已移除 JS 脚本系统**，无法驱动脚本版。详见 [note/compatibility.md](note/compatibility.md)。

@@ -30,7 +30,7 @@ dependencies {
     compileOnly(files(rootProject.projectDir.resolve("../REF/RykenSlimeCustomizer-1.21.11/REF/Slimefun4.1/target/SlimeFun4.1-4.9.5.jar")))
 }
 
-// 把仓库根目录的 WorldTaste 内容 YAML 一并打入 jar（插件运行期从自身资源读取）
+// 把 plugin/content/ 下的 WorldTaste 内容 YAML 一并打入 jar（插件运行期从自身资源读取）
 val contentYaml = listOf(
     "groups.yml", "recipe_types.yml", "items.yml", "foods.yml", "machines.yml",
     "recipe_machines.yml", "mb_machines.yml", "linked_recipe_machines.yml",
@@ -39,7 +39,7 @@ val contentYaml = listOf(
 
 tasks.processResources {
     filteringCharset = "UTF-8"
-    from(rootProject.projectDir.parentFile) {
+    from(rootProject.projectDir.resolve("content")) {
         include(contentYaml)
         into("") // 置于 jar 根目录
     }
